@@ -109,9 +109,9 @@ The app uses Xtream Codes API with the following structure:
 Example credentials format:
 ```typescript
 {
-  serverUrl: "taspazgc.ott-smart.xyz",
-  username: "7QYG7NRU",
-  password: "PQXP2S58"
+  serverUrl: "xxx.xxx",
+  username: "XXXXXX",
+  password: "XXXXXX"
 }
 ```
 
