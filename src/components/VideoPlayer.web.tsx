@@ -48,26 +48,13 @@ export function VideoPlayer({ uri, title, onBack, onError }: VideoPlayerProps) {
         
         hls.on(Hls.Events.ERROR, (event, data) => {
           console.error('HLS error:', data);
-          
-          // Provide user-friendly error messages
-          let errorMessage = 'Failed to load stream';
-          
-          if (data.response?.code === 503) {
-            errorMessage = 'Stream temporarily unavailable (503). Server may be overloaded or channel is offline.';
-          } else if (data.response?.code === 404) {
-            errorMessage = 'Stream not found (404). This channel may no longer be available.';
-          } else if (data.details === 'manifestLoadError') {
-            errorMessage = 'Cannot connect to stream. Please check if the channel is online.';
-          } else if (data.details === 'manifestLoadTimeOut') {
-            errorMessage = 'Stream connection timed out. Server may be slow or unavailable.';
-          }
-          
           if (data.fatal) {
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
                 console.log('Network error, trying to recover...');
-                setError(errorMessage);
+                setError('Failed to load video stream. The stream may be offline or incompatible.');
                 setIsLoading(false);
+                if (onError) onError('Network error');
                 // Try to recover once
                 setTimeout(() => {
                   if (hlsRef.current) {
@@ -77,13 +64,12 @@ export function VideoPlayer({ uri, title, onBack, onError }: VideoPlayerProps) {
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
                 console.log('Media error, trying to recover...');
-                setError(errorMessage);
                 hls.recoverMediaError();
                 break;
               default:
-                setError(errorMessage);
+                setError('Failed to load video stream. The stream may be offline or incompatible.');
                 setIsLoading(false);
-                if (onError) onError(errorMessage);
+                if (onError) onError('Stream error');
                 break;
             }
           }
@@ -247,8 +233,8 @@ export function VideoPlayer({ uri, title, onBack, onError }: VideoPlayerProps) {
             zIndex: 10,
           }}>
             <div style={{
-              border: '5px solid rgba(100, 255, 218, 0.2)',
-              borderTop: '5px solid #64ffda',
+              border: '5px solid rgba(229, 9, 20, 0.2)',
+              borderTop: '5px solid #E50914',
               borderRadius: '50%',
               width: '60px',
               height: '60px',
@@ -256,7 +242,7 @@ export function VideoPlayer({ uri, title, onBack, onError }: VideoPlayerProps) {
               marginBottom: '20px',
               marginLeft: 'auto',
               marginRight: 'auto',
-              boxShadow: '0 0 20px rgba(100, 255, 218, 0.4)',
+              boxShadow: '0 0 20px rgba(229, 9, 20, 0.4)',
             }} />
             <Text style={styles.loadingText}>Loading stream...</Text>
           </div>
@@ -270,7 +256,7 @@ export function VideoPlayer({ uri, title, onBack, onError }: VideoPlayerProps) {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(10, 14, 39, 0.95)',
+            backgroundColor: 'rgba(10, 10, 10, 0.98)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
@@ -283,9 +269,6 @@ export function VideoPlayer({ uri, title, onBack, onError }: VideoPlayerProps) {
               marginBottom: '20px',
             }}>⚠️</div>
             <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.errorHint}>
-              Please try another channel or wait a few moments
-            </Text>
             {onBack && (
               <TouchableOpacity style={styles.retryButton} onPress={onBack}>
                 <Text style={styles.retryButtonText}>← Go Back</Text>
@@ -305,7 +288,7 @@ export function VideoPlayer({ uri, title, onBack, onError }: VideoPlayerProps) {
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            background: 'linear-gradient(180deg, rgba(10,14,39,0.8) 0%, rgba(10,14,39,0) 20%, rgba(10,14,39,0) 80%, rgba(10,14,39,0.8) 100%)',
+            background: 'linear-gradient(180deg, rgba(18,18,18,0.85) 0%, rgba(18,18,18,0) 20%, rgba(18,18,18,0) 80%, rgba(18,18,18,0.85) 100%)',
             zIndex: 5,
           }}>
             {/* Top Bar */}
@@ -358,17 +341,17 @@ export function VideoPlayer({ uri, title, onBack, onError }: VideoPlayerProps) {
               </Text>
               <div style={{
                 height: '6px',
-                backgroundColor: 'rgba(35, 53, 84, 0.8)',
+                backgroundColor: 'rgba(42, 42, 42, 0.8)',
                 borderRadius: '3px',
                 overflow: 'hidden',
                 marginTop: '12px',
               }}>
                 <div style={{
                   height: '100%',
-                  backgroundColor: '#64ffda',
+                  backgroundColor: '#E50914',
                   width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%`,
                   transition: 'width 0.1s',
-                  boxShadow: '0 0 10px rgba(100, 255, 218, 0.5)',
+                  boxShadow: '0 0 10px rgba(229, 9, 20, 0.5)',
                 }} />
               </div>
             </div>
@@ -389,7 +372,7 @@ export function VideoPlayer({ uri, title, onBack, onError }: VideoPlayerProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0a0a0a',
   },
   centerOverlay: {
     position: 'absolute',
@@ -399,17 +382,17 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(10,14,39,0.95)',
+    backgroundColor: 'rgba(10, 10, 10, 0.95)',
     zIndex: 10,
   },
   loadingText: {
-    color: '#8892b0',
+    color: '#A3A3A3',
     fontSize: 16,
     marginTop: 20,
     letterSpacing: 0.5,
   },
   errorText: {
-    color: '#ff6b6b',
+    color: '#E50914',
     fontSize: 20,
     textAlign: 'center',
     marginHorizontal: 32,
@@ -417,7 +400,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   errorHint: {
-    color: '#8892b0',
+    color: '#A3A3A3',
     fontSize: 13,
     textAlign: 'center',
     marginHorizontal: 32,
@@ -427,16 +410,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 32,
     paddingVertical: 14,
-    backgroundColor: '#64ffda',
+    backgroundColor: '#E50914',
     borderRadius: 12,
-    shadowColor: '#64ffda',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    boxShadow: '0 4px 8px rgba(229, 9, 20, 0.3)',
     elevation: 8,
   },
   backButtonText: {
-    color: '#0a192f',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: 'bold',
     textTransform: 'uppercase',
@@ -446,16 +426,13 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingHorizontal: 40,
     paddingVertical: 16,
-    backgroundColor: '#64ffda',
+    backgroundColor: '#E50914',
     borderRadius: 12,
-    shadowColor: '#64ffda',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
+    boxShadow: '0 4px 12px rgba(229, 9, 20, 0.4)',
     elevation: 8,
   },
   retryButtonText: {
-    color: '#0a192f',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
     textTransform: 'uppercase',
@@ -463,17 +440,17 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     padding: 12,
-    backgroundColor: 'rgba(100, 255, 218, 0.15)',
+    backgroundColor: 'rgba(229, 9, 20, 0.15)',
     borderRadius: 10,
   },
   backBtnText: {
-    color: '#64ffda',
+    color: '#E50914',
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
   title: {
-    color: '#ccd6f6',
+    color: '#FFFFFF',
     fontSize: 20,
     fontWeight: '600',
     flex: 1,
@@ -481,13 +458,13 @@ const styles = StyleSheet.create({
   },
   controlButton: {
     padding: 18,
-    backgroundColor: 'rgba(100, 255, 218, 0.2)',
+    backgroundColor: 'rgba(229, 9, 20, 0.2)',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: 'rgba(100, 255, 218, 0.3)',
+    borderColor: 'rgba(229, 9, 20, 0.3)',
   },
   controlButtonText: {
-    color: '#64ffda',
+    color: '#E50914',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -496,18 +473,18 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: 'rgba(100, 255, 218, 0.25)',
+    backgroundColor: 'rgba(229, 9, 20, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#64ffda',
+    borderColor: '#E50914',
   },
   playButtonText: {
-    color: '#64ffda',
+    color: '#E50914',
     fontSize: 36,
   },
   timeText: {
-    color: '#ccd6f6',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '500',
     letterSpacing: 1,

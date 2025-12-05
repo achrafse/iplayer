@@ -15,6 +15,8 @@ import { useFavorites } from '../src/contexts/FavoritesContext';
 import { iptvService } from '../src/services/iptv.service';
 import { EPGService } from '../src/services/epg.service';
 import { EPGListing, LiveStream } from '../src/types/iptv.types';
+import { Button } from '../src/components/ui/Button';
+import { colors, typography, spacing, borderRadius, shadows, rgba } from '../src/constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -81,7 +83,11 @@ export default function ChannelDetailsScreen() {
   };
 
   const handleBack = () => {
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/home');
+    }
   };
 
   const formatDate = (timestamp: number) => {
@@ -110,7 +116,7 @@ export default function ChannelDetailsScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#64ffda" />
+        <ActivityIndicator size="large" color="#E50914" />
         <Text style={styles.loadingText}>Loading channel details...</Text>
       </View>
     );
@@ -154,23 +160,21 @@ export default function ChannelDetailsScreen() {
           </View>
 
           <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.playButton}
+            <Button
+              title="▶ Watch Live"
+              variant="primary"
+              size="xl"
               onPress={handlePlay}
-            >
-              <Text style={styles.playButtonIcon}>▶</Text>
-              <Text style={styles.playButtonText}>Watch Live</Text>
-            </TouchableOpacity>
+              fullWidth
+            />
 
-            <TouchableOpacity
-              style={[styles.favoriteButtonLarge, isFav && styles.favoriteButtonActive]}
+            <Button
+              title={isFav ? '❤️ Favorited' : '🤍 Add to Favorites'}
+              variant={isFav ? 'danger' : 'secondary'}
+              size="xl"
               onPress={() => toggleFavorite(streamId)}
-            >
-              <Text style={styles.favoriteButtonIcon}>{isFav ? '❤️' : '🤍'}</Text>
-              <Text style={[styles.favoriteButtonText, isFav && styles.favoriteButtonTextActive]}>
-                {isFav ? 'Favorited' : 'Add to Favorites'}
-              </Text>
-            </TouchableOpacity>
+              fullWidth
+            />
           </View>
         </View>
 
@@ -233,233 +237,253 @@ export default function ChannelDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0e27',
+    backgroundColor: colors.primary.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0a0e27',
+    backgroundColor: colors.primary.background,
   },
   loadingText: {
-    color: '#8892b0',
-    marginTop: 16,
-    fontSize: 16,
+    color: colors.neutral.gray200,
+    marginTop: spacing.lg,
+    fontSize: typography.size.lg,
+    fontWeight: '500' as any,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingTop: 40,
-    backgroundColor: 'rgba(10, 14, 39, 0.95)',
-    borderBottomWidth: 2,
-    borderBottomColor: 'rgba(100, 255, 218, 0.1)',
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.lg,
+    paddingTop: spacing.xxxl + spacing.md,
+    backgroundColor: rgba(colors.primary.background, 0.98),
+    borderBottomWidth: 1,
+    borderBottomColor: rgba(colors.neutral.white, 0.1),
   },
   backButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(23, 42, 69, 0.6)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: rgba(colors.neutral.white, 0.4),
+    // No heavy shadows
   },
   backIcon: {
-    fontSize: 24,
-    color: '#64ffda',
+    fontSize: typography.size.xl,
+    color: colors.neutral.white,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#e6f1ff',
-    letterSpacing: 0.5,
+    fontSize: typography.size.xxl,
+    fontWeight: '800' as any,
+    color: colors.neutral.white,
+    letterSpacing: typography.letterSpacing.wide,
   },
   content: {
     flex: 1,
   },
   channelSection: {
-    padding: 24,
+    padding: spacing.xxxl,
     alignItems: 'center',
   },
   logoContainer: {
-    width: 200,
-    height: 120,
-    backgroundColor: 'rgba(23, 42, 69, 0.4)',
-    borderRadius: 16,
+    width: 240,
+    height: 140,
+    backgroundColor: rgba(colors.primary.mediumGray, 0.4),
+    borderRadius: borderRadius.xl,
     borderWidth: 2,
-    borderColor: 'rgba(35, 53, 84, 0.5)',
+    borderColor: rgba(colors.primary.lightGray, 0.3),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
+    ...shadows.lg,
   },
   logo: {
     width: '80%',
     height: '80%',
   },
   logoPlaceholder: {
-    backgroundColor: 'rgba(23, 42, 69, 0.5)',
+    backgroundColor: rgba(colors.primary.mediumGray, 0.5),
   },
   logoPlaceholderText: {
-    fontSize: 48,
+    fontSize: typography.size.hero,
     opacity: 0.3,
   },
   channelInfo: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
   },
   channelName: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#e6f1ff',
+    fontSize: typography.size.xxxl + 4,
+    fontWeight: '800' as any,
+    color: colors.neutral.white,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.md,
+    letterSpacing: typography.letterSpacing.tight,
   },
   channelMeta: {
-    fontSize: 14,
-    color: '#8892b0',
+    fontSize: typography.size.md,
+    color: colors.neutral.gray200,
+    fontWeight: '500' as any,
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 16,
+    gap: spacing.md,
     width: '100%',
     maxWidth: 600,
   },
+  // Primary Play button - Solid red, minimal corners
   playButton: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#64ffda',
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    borderRadius: 16,
+    backgroundColor: colors.primary.accent,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.button, // Minimal 4-6px corners
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: spacing.sm,
+    // No heavy shadows
   },
   playButtonIcon: {
-    fontSize: 20,
-    color: '#0a192f',
+    fontSize: typography.size.xl,
+    color: colors.neutral.white,
   },
   playButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0a192f',
-    letterSpacing: 0.5,
+    fontSize: typography.size.md,
+    fontWeight: '600' as any,
+    color: colors.neutral.white,
+    letterSpacing: typography.letterSpacing.wide,
   },
+  // Favorite button - Transparent with border
   favoriteButtonLarge: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: 'rgba(23, 42, 69, 0.6)',
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    borderRadius: 16,
+    backgroundColor: 'transparent',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.button, // Minimal corners
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: spacing.sm,
     borderWidth: 2,
-    borderColor: 'rgba(35, 53, 84, 0.6)',
+    borderColor: rgba(colors.neutral.white, 0.5),
+    // No heavy shadows
   },
   favoriteButtonActive: {
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
-    borderColor: '#ff6b6b',
+    backgroundColor: rgba(colors.primary.accent, 0.15),
+    borderColor: colors.primary.accent,
   },
   favoriteButtonIcon: {
-    fontSize: 20,
+    fontSize: typography.size.xl,
   },
   favoriteButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#8892b0',
-    letterSpacing: 0.5,
+    fontSize: typography.size.md,
+    fontWeight: '600' as any,
+    color: colors.neutral.white,
+    letterSpacing: typography.letterSpacing.wide,
   },
   favoriteButtonTextActive: {
-    color: '#ff6b6b',
+    color: colors.primary.accent,
   },
   scheduleSection: {
-    padding: 24,
+    padding: spacing.xxxl,
     paddingTop: 0,
   },
   sectionTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#e6f1ff',
-    marginBottom: 20,
-    letterSpacing: 0.5,
+    fontSize: typography.size.xxl + 4,
+    fontWeight: '800' as any,
+    color: colors.neutral.white,
+    marginBottom: spacing.xl,
+    letterSpacing: typography.letterSpacing.wide,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingVertical: spacing.huge,
   },
   emptyStateIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: typography.size.hero,
+    marginBottom: spacing.lg,
     opacity: 0.3,
   },
   emptyStateText: {
-    fontSize: 16,
-    color: '#8892b0',
+    fontSize: typography.size.lg,
+    color: colors.neutral.gray200,
+    fontWeight: '500' as any,
   },
   programCard: {
-    backgroundColor: 'rgba(23, 42, 69, 0.4)',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: rgba(colors.primary.mediumGray, 0.4),
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
     borderWidth: 2,
-    borderColor: 'rgba(35, 53, 84, 0.5)',
+    borderColor: rgba(colors.primary.lightGray, 0.3),
+    ...shadows.md,
   },
   programCardNow: {
-    backgroundColor: 'rgba(100, 255, 218, 0.1)',
-    borderColor: '#64ffda',
+    backgroundColor: rgba(colors.primary.accent, 0.12),
+    borderColor: colors.primary.accent,
+    ...shadows.accent,
   },
   nowPlayingBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#64ffda',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 12,
+    backgroundColor: colors.primary.accent,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
   },
   nowPlayingText: {
-    color: '#0a192f',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
+    color: colors.primary.black,
+    fontSize: typography.size.sm,
+    fontWeight: '800' as any,
+    letterSpacing: typography.letterSpacing.widest,
+    textTransform: 'uppercase' as any,
   },
   programHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   programTime: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64ffda',
+    fontSize: typography.size.md,
+    fontWeight: '700' as any,
+    color: colors.primary.accent,
+    letterSpacing: typography.letterSpacing.wide,
   },
   programDate: {
-    fontSize: 12,
-    color: '#8892b0',
+    fontSize: typography.size.sm,
+    color: colors.neutral.gray200,
+    fontWeight: '500' as any,
   },
   programTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e6f1ff',
-    marginBottom: 8,
+    fontSize: typography.size.lg + 2,
+    fontWeight: '700' as any,
+    color: colors.neutral.white,
+    marginBottom: spacing.sm,
+    letterSpacing: typography.letterSpacing.normal,
   },
   programDescription: {
-    fontSize: 14,
-    color: '#ccd6f6',
-    lineHeight: 20,
+    fontSize: typography.size.md,
+    color: colors.neutral.gray100,
+    lineHeight: typography.size.xl,
+    fontWeight: '400' as any,
   },
   progressBarContainer: {
-    height: 4,
-    backgroundColor: 'rgba(100, 255, 218, 0.2)',
-    borderRadius: 2,
-    marginTop: 12,
+    height: 5,
+    backgroundColor: rgba(colors.primary.accent, 0.2),
+    borderRadius: borderRadius.sm,
+    marginTop: spacing.md,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#64ffda',
+    backgroundColor: colors.primary.accent,
+    boxShadow: '0 0 4px rgba(229, 9, 20, 0.8)',
   },
 });

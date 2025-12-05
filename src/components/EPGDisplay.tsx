@@ -117,29 +117,29 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   compactText: {
-    color: '#64ffda',
+    color: '#E50914', // Vibrant red accent
     fontSize: 11,
     fontWeight: '600',
   },
   compactNextText: {
-    color: '#8892b0',
+    color: '#A3A3A3', // Medium gray for secondary text
     fontSize: 10,
     marginTop: 2,
   },
   progressBar: {
     height: 2,
-    backgroundColor: 'rgba(100, 255, 218, 0.2)',
+    backgroundColor: 'rgba(229, 9, 20, 0.2)', // Red progress background
     borderRadius: 1,
     marginBottom: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#64ffda',
+    backgroundColor: '#E50914', // Vibrant red
   },
   container: {
     padding: 16,
-    backgroundColor: 'rgba(10, 14, 39, 0.95)',
+    backgroundColor: 'rgba(26, 26, 26, 0.95)', // Premium dark card background
     borderRadius: 12,
     marginVertical: 8,
   },
@@ -147,37 +147,37 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   programLabel: {
-    color: '#64ffda',
+    color: '#E50914', // Vibrant red accent
     fontSize: 12,
     fontWeight: '700',
     marginBottom: 4,
     letterSpacing: 1,
   },
   programTitle: {
-    color: '#e6f1ff',
+    color: '#FFFFFF', // Pure white for primary text
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
   },
   programTime: {
-    color: '#8892b0',
+    color: '#A3A3A3', // Medium gray for secondary text
     fontSize: 13,
     marginBottom: 8,
   },
   programDescription: {
-    color: '#ccd6f6',
+    color: '#CCCCCC', // Light gray for description
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 8,
   },
   progressBarLarge: {
     height: 4,
-    backgroundColor: 'rgba(100, 255, 218, 0.2)',
+    backgroundColor: 'rgba(229, 9, 20, 0.2)', // Red progress background
     borderRadius: 2,
     overflow: 'hidden',
   },
   progressFillLarge: {
     height: '100%',
-    backgroundColor: '#64ffda',
+    backgroundColor: '#E50914', // Vibrant red
   },
 });

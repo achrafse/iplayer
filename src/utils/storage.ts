@@ -2,10 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IPTVCredentials } from '../types/iptv.types';
 
 const STORAGE_KEYS = {
-  CREDENTIALS: '@iplayer:credentials',
-  FAVORITES: '@iplayer:favorites',
-  RECENT: '@iplayer:recent',
-  WATCH_HISTORY: '@iplayer:watch_history',
+  CREDENTIALS: '@alphastudio:credentials',
+  FAVORITES: '@alphastudio:favorites',
+  RECENT: '@alphastudio:recent',
+  WATCH_HISTORY: '@alphastudio:watch_history',
 };
 
 export interface WatchHistoryItem {

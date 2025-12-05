@@ -41,7 +41,11 @@ export default function PlayerScreen() {
         streamUrl: params.url,
       });
     }
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/home');
+    }
   };
 
   const handleError = (error: string) => {

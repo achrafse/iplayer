@@ -8,11 +8,25 @@ import {
   Image,
   ActivityIndicator,
   Dimensions,
+  ImageBackground,
+  Animated,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFavorites } from '../src/contexts/FavoritesContext';
 import { iptvService } from '../src/services/iptv.service';
 import { VODInfo } from '../src/types/iptv.types';
+import { Button } from '../src/components/ui/Button';
+import { colors, typography, spacing, borderRadius, shadows, rgba } from '../src/constants/theme';
+import { 
+  scaledFont, 
+  scaleSpacing, 
+  getScaledRadius, 
+  isTV,
+  getPosterDimensions,
+  getHeroBannerHeight,
+  getContainerPadding 
+} from '../src/utils/responsive';
 
 const { width } = Dimensions.get('window');
 
@@ -69,7 +83,11 @@ export default function MovieDetailsScreen() {
   };
 
   const handleBack = () => {
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/home');
+    }
   };
 
   const openTrailer = () => {
@@ -82,7 +100,7 @@ export default function MovieDetailsScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#64ffda" />
+        <ActivityIndicator size="large" color="#E50914" />
         <Text style={styles.loadingText}>Loading movie details...</Text>
       </View>
     );
@@ -104,97 +122,129 @@ export default function MovieDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Movie Details</Text>
-        <View style={{ width: 50 }} />
-      </View>
-
       <ScrollView style={styles.content}>
-        {/* Hero Section with Poster */}
-        <View style={styles.heroSection}>
-          <View style={styles.posterContainer}>
-            {posterUrl ? (
-              <Image
-                source={{ uri: posterUrl }}
-                style={styles.poster}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={[styles.poster, styles.posterPlaceholder]}>
-                <Text style={styles.posterPlaceholderText}>🎬</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.heroInfo}>
-            <Text style={styles.movieTitle}>{info.name || params.name}</Text>
-            {info.o_name && info.o_name !== info.name && (
-              <Text style={styles.originalTitle}>{info.o_name}</Text>
-            )}
-
-            <View style={styles.metaRow}>
-              {info.releasedate && (
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>📅</Text>
-                  <Text style={styles.metaValue}>{info.releasedate}</Text>
-                </View>
-              )}
-              {info.duration && (
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>⏱️</Text>
-                  <Text style={styles.metaValue}>{info.duration}</Text>
-                </View>
-              )}
-              {info.rating_count_kinopoisk && (
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>⭐</Text>
-                  <Text style={styles.metaValue}>{info.rating_count_kinopoisk}</Text>
-                </View>
-              )}
-            </View>
-
-            {info.genre && (
-              <View style={styles.genreContainer}>
-                {info.genre.split(',').slice(0, 3).map((genre, index) => (
-                  <View key={index} style={styles.genreTag}>
-                    <Text style={styles.genreText}>{genre.trim()}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actionSection}>
-          <TouchableOpacity style={styles.playButton} onPress={handlePlay}>
-            <Text style={styles.playButtonIcon}>▶</Text>
-            <Text style={styles.playButtonText}>Play Movie</Text>
-          </TouchableOpacity>
-
-          <View style={styles.secondaryButtons}>
-            <TouchableOpacity
-              style={[styles.iconButton, isFav && styles.iconButtonActive]}
-              onPress={() => toggleFavorite(streamId)}
-            >
-              <Text style={styles.iconButtonIcon}>{isFav ? '❤️' : '🤍'}</Text>
-              <Text style={[styles.iconButtonText, isFav && styles.iconButtonTextActive]}>
-                {isFav ? 'Favorited' : 'Favorite'}
-              </Text>
-            </TouchableOpacity>
-
-            {info.youtube_trailer && (
-              <TouchableOpacity style={styles.iconButton} onPress={openTrailer}>
-                <Text style={styles.iconButtonIcon}>🎥</Text>
-                <Text style={styles.iconButtonText}>Trailer</Text>
+        {/* Backdrop Hero Section */}
+        <ImageBackground
+          source={{ uri: posterUrl }}
+          style={styles.backdropSection}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={[
+              'transparent',
+              rgba(colors.primary.black, 0.7),
+              colors.primary.black,
+            ]}
+            locations={[0, 0.5, 1]}
+            style={styles.backdropGradient}
+          >
+            {/* Floating Back Button */}
+            <View style={styles.floatingButtonContainer}>
+              <TouchableOpacity style={styles.floatingBackButton} onPress={handleBack}>
+                <Text style={styles.floatingButtonIcon}>←</Text>
               </TouchableOpacity>
-            )}
-          </View>
-        </View>
+            </View>
+            <View style={styles.heroContent}>
+              <View style={styles.posterWrapper}>
+                <View style={styles.posterContainer}>
+                  {posterUrl ? (
+                    <Image
+                      source={{ uri: posterUrl }}
+                      style={styles.poster}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.poster, styles.posterPlaceholder]}>
+                      <Text style={styles.posterPlaceholderText}>🎬</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.heroInfo}>
+                <Text style={styles.movieTitle}>{info.name || params.name}</Text>
+                {info.o_name && info.o_name !== info.name && (
+                  <Text style={styles.originalTitle}>{info.o_name}</Text>
+                )}
+
+                {/* Stats Row with Action Buttons */}
+                <View style={styles.statsAndActionsContainer}>
+                  <View style={styles.statsRow}>
+                    {info.releasedate && (
+                      <View style={styles.statCard}>
+                        <Text style={styles.statIcon}>📅</Text>
+                        <View>
+                          <Text style={styles.statLabel}>Year</Text>
+                          <Text style={styles.statValue}>{info.releasedate.split('-')[0]}</Text>
+                        </View>
+                      </View>
+                    )}
+                    {info.duration && (
+                      <View style={styles.statCard}>
+                        <Text style={styles.statIcon}>⏱️</Text>
+                        <View>
+                          <Text style={styles.statLabel}>Duration</Text>
+                          <Text style={styles.statValue}>{info.duration}</Text>
+                        </View>
+                      </View>
+                    )}
+                    {info.rating_count_kinopoisk && (
+                      <View style={styles.statCard}>
+                        <Text style={styles.statIcon}>⭐</Text>
+                        <View>
+                          <Text style={styles.statLabel}>Rating</Text>
+                          <Text style={styles.statValue}>{info.rating_count_kinopoisk}</Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.inlineButtonsRow}>
+                    <View style={styles.inlineButton}>
+                      <Button
+                        title="▶ Play"
+                        variant="primary"
+                        size="sm"
+                        onPress={handlePlay}
+                        fullWidth
+                      />
+                    </View>
+                    <View style={styles.inlineButton}>
+                      <Button
+                        title={isFav ? '❤️' : '🤍'}
+                        variant={isFav ? 'danger' : 'secondary'}
+                        size="sm"
+                        onPress={() => toggleFavorite(streamId)}
+                        fullWidth
+                      />
+                    </View>
+                    {info.youtube_trailer && (
+                      <View style={styles.inlineButton}>
+                        <Button
+                          title="🎥"
+                          variant="secondary"
+                          size="sm"
+                          onPress={openTrailer}
+                          fullWidth
+                        />
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {info.genre && (
+                  <View style={styles.genreContainer}>
+                    {info.genre.split(',').slice(0, 4).map((genre, index) => (
+                      <View key={index} style={styles.genreTag}>
+                        <Text style={styles.genreText}>{genre.trim()}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </View>
+          </LinearGradient>
+        </ImageBackground>
 
         {/* Description */}
         {(info.description || info.plot) && (
@@ -210,50 +260,31 @@ export default function MovieDetailsScreen() {
         {(info.director || info.actors || info.cast) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Cast & Crew</Text>
-            
-            {info.director && (
-              <View style={styles.creditRow}>
-                <Text style={styles.creditLabel}>Director:</Text>
-                <Text style={styles.creditValue}>{info.director}</Text>
-              </View>
-            )}
+            <View style={styles.creditsCard}>
+              {info.director && (
+                <View style={styles.creditRow}>
+                  <View style={styles.creditLabelContainer}>
+                    <Text style={styles.creditIcon}>🎬</Text>
+                    <Text style={styles.creditLabel}>Director</Text>
+                  </View>
+                  <Text style={styles.creditValue}>{info.director}</Text>
+                </View>
+              )}
 
-            {(info.actors || info.cast) && (
-              <View style={styles.creditRow}>
-                <Text style={styles.creditLabel}>Cast:</Text>
-                <Text style={styles.creditValue}>
-                  {info.actors || info.cast}
-                </Text>
-              </View>
-            )}
+              {(info.actors || info.cast) && (
+                <View style={styles.creditRow}>
+                  <View style={styles.creditLabelContainer}>
+                    <Text style={styles.creditIcon}>🎭</Text>
+                    <Text style={styles.creditLabel}>Cast</Text>
+                  </View>
+                  <Text style={styles.creditValue}>
+                    {info.actors || info.cast}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         )}
-
-        {/* Additional Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Additional Information</Text>
-          
-          {info.country && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Country:</Text>
-              <Text style={styles.infoValue}>{info.country}</Text>
-            </View>
-          )}
-
-          {info.age && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Rating:</Text>
-              <Text style={styles.infoValue}>{info.age}</Text>
-            </View>
-          )}
-
-          {info.bitrate && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Quality:</Text>
-              <Text style={styles.infoValue}>{Math.round(info.bitrate / 1000)} Kbps</Text>
-            </View>
-          )}
-        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -264,95 +295,102 @@ export default function MovieDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0e27',
+    backgroundColor: colors.primary.black,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0a0e27',
+    backgroundColor: colors.primary.background,
   },
   loadingText: {
-    color: '#8892b0',
-    marginTop: 16,
-    fontSize: 16,
+    color: colors.neutral.gray200,
+    marginTop: scaleSpacing(spacing.lg),
+    fontSize: scaledFont(typography.size.lg),
+    fontWeight: '500' as any,
   },
   errorText: {
-    color: '#ff6b6b',
-    fontSize: 16,
-    marginBottom: 16,
+    color: colors.semantic.error,
+    fontSize: scaledFont(typography.size.lg),
+    marginBottom: scaleSpacing(spacing.lg),
+    fontWeight: '600' as any,
   },
   retryButton: {
-    backgroundColor: '#64ffda',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    backgroundColor: colors.primary.accent,
+    paddingVertical: scaleSpacing(spacing.md),
+    paddingHorizontal: scaleSpacing(spacing.xl),
+    borderRadius: borderRadius.button, // Minimal corners
+    // No heavy shadows
   },
   retryButtonText: {
-    color: '#0a192f',
-    fontSize: 16,
-    fontWeight: '700',
+    color: colors.neutral.white,
+    fontSize: scaledFont(typography.size.md),
+    fontWeight: '600' as any,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingTop: 40,
-    backgroundColor: 'rgba(10, 14, 39, 0.95)',
-    borderBottomWidth: 2,
-    borderBottomColor: 'rgba(100, 255, 218, 0.1)',
+  floatingButtonContainer: {
+    position: 'absolute',
+    top: scaleSpacing(spacing.xl + spacing.lg),
+    right: scaleSpacing(spacing.xl),
+    zIndex: 10,
   },
-  backButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(23, 42, 69, 0.6)',
+  floatingBackButton: {
+    width: isTV ? 56 : 44,
+    height: isTV ? 56 : 44,
+    borderRadius: isTV ? 28 : 22,
+    backgroundColor: rgba(colors.primary.background, 0.9),
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: rgba(colors.neutral.white, 0.3),
+    // No heavy shadows
   },
-  backIcon: {
-    fontSize: 24,
-    color: '#64ffda',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#e6f1ff',
-    letterSpacing: 0.5,
+  floatingButtonIcon: {
+    fontSize: scaledFont(typography.size.xl),
+    color: colors.neutral.white,
+    fontWeight: '600' as any,
   },
   content: {
     flex: 1,
   },
-  heroSection: {
+  backdropSection: {
+    width: '100%',
+    minHeight: getHeroBannerHeight(),
+  },
+  backdropGradient: {
+    width: '100%',
+    minHeight: getHeroBannerHeight(),
+    paddingTop: scaleSpacing(spacing.huge + spacing.xxl),
+  },
+  heroContent: {
     flexDirection: 'row',
-    padding: 24,
-    gap: 24,
+    padding: getContainerPadding(),
+    paddingTop: scaleSpacing(spacing.xxl),
+    gap: scaleSpacing(spacing.xxl),
+  },
+  posterWrapper: {
+    ...shadows.hero,
   },
   posterContainer: {
-    width: 200,
+    width: getPosterDimensions().width,
     aspectRatio: 2 / 3,
-    borderRadius: 16,
+    borderRadius: getScaledRadius(borderRadius.xl),
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 10,
+    borderWidth: isTV ? 5 : 3,
+    borderColor: rgba(colors.primary.accent, 0.3),
+    backgroundColor: colors.primary.darkGray,
   },
   poster: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#0a192f',
+    backgroundColor: colors.primary.darkGray,
   },
   posterPlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(23, 42, 69, 0.5)',
+    backgroundColor: rgba(colors.primary.mediumGray, 0.5),
   },
   posterPlaceholderText: {
-    fontSize: 64,
+    fontSize: scaledFont(typography.size.hero),
     opacity: 0.3,
   },
   heroInfo: {
@@ -360,153 +398,164 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   movieTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#e6f1ff',
-    marginBottom: 8,
-    lineHeight: 36,
+    fontSize: scaledFont(typography.size.xxxl + 4),
+    fontWeight: '800' as any,
+    color: colors.neutral.white,
+    marginBottom: scaleSpacing(spacing.md),
+    lineHeight: scaledFont(typography.size.xxxl * 1.4),
+    letterSpacing: typography.letterSpacing.tight,
   },
   originalTitle: {
-    fontSize: 16,
-    color: '#8892b0',
+    fontSize: scaledFont(typography.size.lg),
+    color: colors.neutral.gray200,
     fontStyle: 'italic',
-    marginBottom: 16,
+    marginBottom: scaleSpacing(spacing.lg),
+    fontWeight: '400' as any,
   },
-  metaRow: {
+  statsAndActionsContainer: {
+    marginBottom: scaleSpacing(spacing.xl),
+  },
+  statsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 16,
+    gap: scaleSpacing(spacing.md),
+    marginBottom: scaleSpacing(spacing.lg),
   },
-  metaItem: {
+  inlineButtonsRow: {
+    flexDirection: 'row',
+    gap: scaleSpacing(spacing.sm),
+    flexWrap: 'wrap',
+  },
+  inlineButton: {
+    minWidth: isTV ? 140 : 90,
+  },
+  statCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    backgroundColor: rgba(colors.primary.mediumGray, 0.6),
+    paddingHorizontal: scaleSpacing(spacing.lg),
+    paddingVertical: scaleSpacing(spacing.md),
+    borderRadius: getScaledRadius(borderRadius.lg),
+    gap: scaleSpacing(spacing.md),
+    borderWidth: isTV ? 2 : 1,
+    borderColor: rgba(colors.primary.accent, 0.2),
+    ...shadows.md,
   },
-  metaLabel: {
-    fontSize: 16,
+  statIcon: {
+    fontSize: scaledFont(typography.size.xl),
   },
-  metaValue: {
-    fontSize: 14,
-    color: '#ccd6f6',
-    fontWeight: '600',
+  statLabel: {
+    fontSize: scaledFont(typography.size.xs),
+    color: colors.neutral.gray200,
+    fontWeight: '600' as any,
+    textTransform: 'uppercase' as any,
+    letterSpacing: typography.letterSpacing.wide,
+  },
+  statValue: {
+    fontSize: scaledFont(typography.size.md),
+    color: colors.neutral.white,
+    fontWeight: '700' as any,
+    letterSpacing: typography.letterSpacing.normal,
   },
   genreContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: scaleSpacing(spacing.md),
   },
   genreTag: {
-    backgroundColor: 'rgba(100, 255, 218, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(100, 255, 218, 0.3)',
+    backgroundColor: rgba(colors.primary.accent, 0.18),
+    paddingHorizontal: scaleSpacing(spacing.lg),
+    paddingVertical: scaleSpacing(spacing.sm),
+    borderRadius: getScaledRadius(borderRadius.md),
+    borderWidth: isTV ? 2.5 : 1.5,
+    borderColor: rgba(colors.primary.accent, 0.4),
   },
   genreText: {
-    color: '#64ffda',
-    fontSize: 12,
-    fontWeight: '600',
+    color: colors.primary.accent,
+    fontSize: scaledFont(typography.size.sm),
+    fontWeight: '700' as any,
+    letterSpacing: typography.letterSpacing.wide,
+    textTransform: 'uppercase' as any,
   },
-  actionSection: {
-    padding: 24,
-    paddingTop: 0,
-  },
-  playButton: {
-    flexDirection: 'row',
-    backgroundColor: '#64ffda',
-    paddingVertical: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  playButtonIcon: {
-    fontSize: 24,
-    color: '#0a192f',
-  },
-  playButtonText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0a192f',
-    letterSpacing: 0.5,
-  },
-  secondaryButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+
+  // Modern minimal icon button style
   iconButton: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: 'rgba(23, 42, 69, 0.6)',
-    paddingVertical: 14,
-    borderRadius: 12,
+    backgroundColor: 'transparent',
+    paddingVertical: scaleSpacing(spacing.md),
+    borderRadius: borderRadius.button, // Minimal 4-6px corners
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: scaleSpacing(spacing.sm),
     borderWidth: 2,
-    borderColor: 'rgba(35, 53, 84, 0.6)',
+    borderColor: rgba(colors.neutral.white, 0.5),
+    // No heavy shadows
   },
   iconButtonActive: {
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
-    borderColor: '#ff6b6b',
+    backgroundColor: rgba(colors.primary.accent, 0.15),
+    borderColor: colors.primary.accent,
   },
   iconButtonIcon: {
-    fontSize: 18,
+    fontSize: scaledFont(typography.size.lg),
   },
   iconButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8892b0',
+    fontSize: scaledFont(typography.size.sm),
+    fontWeight: '600' as any,
+    color: colors.neutral.white,
+    letterSpacing: typography.letterSpacing.wide,
   },
   iconButtonTextActive: {
-    color: '#ff6b6b',
+    color: colors.primary.accent,
   },
   section: {
-    padding: 24,
+    padding: getContainerPadding(),
     paddingTop: 0,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#e6f1ff',
-    marginBottom: 16,
-    letterSpacing: 0.5,
+    fontSize: scaledFont(typography.size.xxl + 2),
+    fontWeight: '800' as any,
+    color: colors.neutral.white,
+    marginBottom: scaleSpacing(spacing.lg),
+    letterSpacing: typography.letterSpacing.wide,
   },
   description: {
-    fontSize: 15,
-    color: '#ccd6f6',
-    lineHeight: 24,
+    fontSize: scaledFont(typography.size.lg),
+    color: colors.neutral.gray100,
+    lineHeight: scaledFont(typography.size.xxl + 4),
+    fontWeight: '400' as any,
+  },
+  creditsCard: {
+    backgroundColor: rgba(colors.primary.mediumGray, 0.4),
+    borderRadius: getScaledRadius(borderRadius.xl),
+    padding: scaleSpacing(spacing.xl),
+    borderWidth: isTV ? 2 : 1,
+    borderColor: rgba(colors.primary.lightGray, 0.2),
+    gap: scaleSpacing(spacing.lg),
   },
   creditRow: {
-    marginBottom: 12,
+    gap: scaleSpacing(spacing.md),
+  },
+  creditLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scaleSpacing(spacing.sm),
+    marginBottom: scaleSpacing(spacing.xs),
+  },
+  creditIcon: {
+    fontSize: scaledFont(typography.size.lg),
   },
   creditLabel: {
-    fontSize: 14,
-    color: '#64ffda',
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: scaledFont(typography.size.sm),
+    color: colors.primary.accent,
+    fontWeight: '700' as any,
+    letterSpacing: typography.letterSpacing.widest,
+    textTransform: 'uppercase' as any,
   },
   creditValue: {
-    fontSize: 14,
-    color: '#ccd6f6',
-    lineHeight: 22,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: '#8892b0',
-    width: 100,
-    fontWeight: '600',
-  },
-  infoValue: {
-    flex: 1,
-    fontSize: 14,
-    color: '#ccd6f6',
+    fontSize: scaledFont(typography.size.md),
+    color: colors.neutral.gray100,
+    lineHeight: scaledFont(typography.size.xl),
+    fontWeight: '400' as any,
   },
 });

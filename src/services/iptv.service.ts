@@ -21,14 +21,71 @@ class IPTVService {
   private axiosInstance: AxiosInstance;
   private credentials: IPTVCredentials | null = null;
   private baseUrl: string = '';
+  
+  // Cache for faster subsequent loads
+  private cache: Map<string, { data: any; timestamp: number }> = new Map();
+  private CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
   constructor() {
     this.axiosInstance = axios.create({
-      timeout: 30000,
+      timeout: 30000, // 30 seconds for proxy requests
       headers: {
         'Content-Type': 'application/json',
       },
     });
+  }
+  
+  /**
+   * Get cached data or fetch new
+   */
+  private async getCachedOrFetch<T>(cacheKey: string, fetchFn: () => Promise<T>): Promise<T> {
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.data as T;
+    }
+    
+    const data = await fetchFn();
+    this.cache.set(cacheKey, { data, timestamp: Date.now() });
+    return data;
+  }
+  
+  /**
+   * Clear cache (useful for refresh)
+   */
+  clearCache() {
+    this.cache.clear();
+  }
+  
+  /**
+   * Check if running on web platform (including LG webOS, Samsung Tizen)
+   */
+  private isWeb(): boolean {
+    return typeof window !== 'undefined' && typeof document !== 'undefined';
+  }
+  
+  /**
+   * CORS proxy URL configuration
+   * - Development: http://localhost:3001
+   * - Production: Set EXPO_PUBLIC_PROXY_URL environment variable
+   * 
+   * For LG webOS / Samsung Tizen production builds, deploy a CORS proxy
+   * and set the URL in your build environment.
+   */
+  private getProxyUrl(): string {
+    // Check for environment variable (works with Expo)
+    const envProxyUrl = process.env.EXPO_PUBLIC_PROXY_URL;
+    if (envProxyUrl) {
+      return envProxyUrl;
+    }
+    
+    // Development fallback
+    if (__DEV__) {
+      return 'http://localhost:3001';
+    }
+    
+    // Production: If no proxy URL is set, try direct connection
+    // (may work if IPTV server has CORS enabled)
+    return '';
   }
 
   /**
@@ -45,6 +102,7 @@ class IPTVService {
 
   /**
    * Build API URL with credentials
+   * Uses proxy on web platforms to bypass CORS restrictions
    */
   private buildUrl(action: string, params: Record<string, any> = {}): string {
     if (!this.credentials) {
@@ -57,7 +115,17 @@ class IPTVService {
       ...params,
     });
 
-    return `${this.baseUrl}/player_api.php?${queryParams.toString()}`;
+    const directUrl = `${this.baseUrl}/player_api.php?${queryParams.toString()}`;
+    
+    // Use proxy on web platforms (browser, LG webOS, Samsung Tizen) to bypass CORS
+    if (this.isWeb()) {
+      const proxyUrl = this.getProxyUrl();
+      if (proxyUrl) {
+        return `${proxyUrl}?url=${encodeURIComponent(directUrl)}`;
+      }
+    }
+    
+    return directUrl;
   }
 
   /**
@@ -83,21 +151,19 @@ class IPTVService {
    * Get all live stream categories
    */
   async getLiveCategories(): Promise<LiveCategory[]> {
-    try {
+    return this.getCachedOrFetch('live_categories', async () => {
       const url = this.buildUrl('', { action: 'get_live_categories' });
       const response = await this.axiosInstance.get<LiveCategory[]>(url);
       return response.data;
-    } catch (error) {
-      console.error('Error fetching live categories:', error);
-      throw error;
-    }
+    });
   }
 
   /**
    * Get live streams by category
    */
   async getLiveStreams(categoryId?: string): Promise<LiveStream[]> {
-    try {
+    const cacheKey = `live_streams_${categoryId || 'all'}`;
+    return this.getCachedOrFetch(cacheKey, async () => {
       const params: any = { action: 'get_live_streams' };
       if (categoryId) {
         params.category_id = categoryId;
@@ -105,31 +171,26 @@ class IPTVService {
       const url = this.buildUrl('', params);
       const response = await this.axiosInstance.get<LiveStream[]>(url);
       return response.data;
-    } catch (error) {
-      console.error('Error fetching live streams:', error);
-      throw error;
-    }
+    });
   }
 
   /**
    * Get VOD categories
    */
   async getVODCategories(): Promise<VODCategory[]> {
-    try {
+    return this.getCachedOrFetch('vod_categories', async () => {
       const url = this.buildUrl('', { action: 'get_vod_categories' });
       const response = await this.axiosInstance.get<VODCategory[]>(url);
       return response.data;
-    } catch (error) {
-      console.error('Error fetching VOD categories:', error);
-      throw error;
-    }
+    });
   }
 
   /**
    * Get VOD streams by category
    */
   async getVODStreams(categoryId?: string): Promise<VODStream[]> {
-    try {
+    const cacheKey = `vod_streams_${categoryId || 'all'}`;
+    return this.getCachedOrFetch(cacheKey, async () => {
       const params: any = { action: 'get_vod_streams' };
       if (categoryId) {
         params.category_id = categoryId;
@@ -137,10 +198,7 @@ class IPTVService {
       const url = this.buildUrl('', params);
       const response = await this.axiosInstance.get<VODStream[]>(url);
       return response.data;
-    } catch (error) {
-      console.error('Error fetching VOD streams:', error);
-      throw error;
-    }
+    });
   }
 
   /**
@@ -161,21 +219,19 @@ class IPTVService {
    * Get series categories
    */
   async getSeriesCategories(): Promise<SeriesCategory[]> {
-    try {
+    return this.getCachedOrFetch('series_categories', async () => {
       const url = this.buildUrl('', { action: 'get_series_categories' });
       const response = await this.axiosInstance.get<SeriesCategory[]>(url);
       return response.data;
-    } catch (error) {
-      console.error('Error fetching series categories:', error);
-      throw error;
-    }
+    });
   }
 
   /**
    * Get series list by category
    */
   async getSeries(categoryId?: string): Promise<any[]> {
-    try {
+    const cacheKey = `series_${categoryId || 'all'}`;
+    return this.getCachedOrFetch(cacheKey, async () => {
       const params: any = { action: 'get_series' };
       if (categoryId) {
         params.category_id = categoryId;
@@ -183,10 +239,7 @@ class IPTVService {
       const url = this.buildUrl('', params);
       const response = await this.axiosInstance.get<any[]>(url);
       return response.data;
-    } catch (error) {
-      console.error('Error fetching series:', error);
-      throw error;
-    }
+    });
   }
 
   /**

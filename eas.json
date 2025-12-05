@@ -21,10 +21,21 @@
         "buildType": "apk"
       }
     },
-    "androidtv": {
-      "extends": "production",
+    "android-mobile": {
+      "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      }
+    },
+    "android-tv": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "env": {
+        "EXPO_TV": "1"
       }
     }
   },

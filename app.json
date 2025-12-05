@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "iPlayer",
+    "name": "Alpha Studio",
     "slug": "iplayer",
     "version": "1.0.0",
-    "orientation": "landscape",
+    "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "iplayer",
+    "scheme": "alphastudio",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -15,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.iplayer.app"
+      "bundleIdentifier": "com.alphastudio.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#121212"
       },
-      "package": "com.iplayer.app",
+      "package": "com.alphastudio.app",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [

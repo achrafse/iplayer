@@ -1,4 +1,4 @@
-# iPlayer - Cross-Platform IPTV Player
+# Alpha Studio - Cross-Platform IPTV Player
 
 A modern IPTV player application built with React Native (Expo) supporting Android, iOS, Android TV, and Web platforms using Xtream Codes API.
 

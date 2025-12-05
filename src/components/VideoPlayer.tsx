@@ -78,9 +78,24 @@ export function VideoPlayer({ uri, title, onBack, onError, onProgress }: VideoPl
   };
 
   const handleError = (errorMessage: string) => {
-    setError(errorMessage);
+    const detailedError = 'Stream unavailable. Possible reasons:\n• Stream is offline\n• Invalid credentials\n• Server is unreachable';
+    setError(detailedError);
     setIsLoading(false);
-    onError?.(errorMessage);
+    onError?.(detailedError);
+  };
+
+  const handleRetry = async () => {
+    setError(null);
+    setIsLoading(true);
+    if (videoRef.current) {
+      try {
+        await videoRef.current.unloadAsync();
+        await videoRef.current.loadAsync({ uri }, {}, false);
+        await videoRef.current.playAsync();
+      } catch (e) {
+        handleError('Retry failed');
+      }
+    }
   };
 
   const togglePlayPause = async () => {
@@ -156,12 +171,18 @@ export function VideoPlayer({ uri, title, onBack, onError, onProgress }: VideoPl
       {/* Error Message */}
       {error && (
         <View style={styles.centerOverlay}>
+          <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.errorText}>{error}</Text>
-          {onBack && (
-            <TouchableOpacity style={styles.backButton} onPress={onBack}>
-              <Text style={styles.backButtonText}>Go Back</Text>
+          <View style={styles.errorButtons}>
+            <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+              <Text style={styles.retryButtonText}>🔄 Retry</Text>
             </TouchableOpacity>
-          )}
+            {onBack && (
+              <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                <Text style={styles.backButtonText}>← Go Back</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       )}
 
@@ -243,21 +264,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 16,
   },
+  errorIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
   errorText: {
-    color: '#ff4444',
-    fontSize: 18,
+    color: '#fff',
+    fontSize: 16,
     textAlign: 'center',
     marginHorizontal: 32,
+    marginBottom: 24,
   },
-  backButton: {
-    marginTop: 24,
+  errorButtons: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  retryButton: {
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#E50914',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  backButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 8,
   },
   backButtonText: {
-    color: '#000',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },

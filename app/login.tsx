@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
-  Image,
+  ImageBackground,
+  Dimensions,
+  Animated,
+  TouchableOpacity,
+  ScrollView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../src/contexts/AuthContext';
+import { colors, typography, spacing, borderRadius, rgba } from '../src/constants/theme';
+
+const { width } = Dimensions.get('window');
+const isSmallScreen = width < 768;
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -22,9 +28,30 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [serverUrl, setServerUrl] = useState('');
   const [error, setError] = useState('');
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
+  
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    // Smooth entrance animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 450,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handleLogin = async () => {
-    // Clear previous error
     setError('');
     
     if (!username || !password || !serverUrl) {
@@ -35,190 +62,371 @@ export default function LoginScreen() {
     try {
       await login({ username, password, serverUrl });
       router.replace('/home');
-    } catch (error: any) {
-      setError(error.message || 'Invalid credentials. Please check your information and try again.');
+    } catch (err: any) {
+      setError(err.message || 'Invalid credentials. Please try again.');
     }
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.logo}>iPlayer</Text>
-          <Text style={styles.subtitle}>IPTV Streaming Platform</Text>
-        </View>
+    <View style={styles.container}>
+      {/* Full-screen cinematic background */}
+      <ImageBackground
+        source={{ uri: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1920&q=80' }}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        {/* Dark overlay (65% opacity) - replaces blur effect */}
+        <View style={styles.darkOverlay} />
+        
+        {/* Gradient overlay for bottom fade */}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.85)']}
+          style={styles.gradientOverlay}
+        />
+      </ImageBackground>
 
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Server URL / DNS</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="taspazgc.ott-smart.xyz"
-              placeholderTextColor="#666"
-              value={serverUrl}
-              onChangeText={setServerUrl}
-              autoCapitalize="none"
-              keyboardType="url"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Username</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="7QYG7NRU"
-              placeholderTextColor="#666"
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="PQXP2S58"
-              placeholderTextColor="#666"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
-
-          {/* Error Message Display */}
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorIcon}>⚠️</Text>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
-
-          <TouchableOpacity 
-            style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={isLoading}
+      {/* Centered Login Form */}
+      <KeyboardAvoidingView 
+        style={styles.content}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Animated.View 
+            style={[
+              styles.formCard,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              }
+            ]}
           >
-            {isLoading ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
+            {/* Logo / Brand */}
+            <View style={styles.brandContainer}>
+              <Text style={styles.brandName}>iPlayer</Text>
+              <Text style={styles.brandTagline}>Premium Streaming</Text>
+            </View>
 
-          <Text style={styles.helpText}>
-            Enter your Xtream Codes credentials to access your IPTV service
-          </Text>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+            {/* Form Header */}
+            <Text style={styles.formTitle}>Sign In</Text>
+            <Text style={styles.formSubtitle}>
+              Enter your credentials to continue
+            </Text>
+
+            {/* Input Fields */}
+            <View style={styles.inputsContainer}>
+              {/* Server URL */}
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Server URL</Text>
+                <View style={[
+                  styles.inputContainer,
+                  focusedInput === 'server' && styles.inputFocused
+                ]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. example.server.com"
+                    placeholderTextColor={colors.neutral.gray300}
+                    value={serverUrl}
+                    onChangeText={setServerUrl}
+                    onFocus={() => setFocusedInput('server')}
+                    onBlur={() => setFocusedInput(null)}
+                    autoCapitalize="none"
+                    keyboardType="url"
+                  />
+                </View>
+              </View>
+
+              {/* Username */}
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Username</Text>
+                <View style={[
+                  styles.inputContainer,
+                  focusedInput === 'username' && styles.inputFocused
+                ]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your username"
+                    placeholderTextColor={colors.neutral.gray300}
+                    value={username}
+                    onChangeText={setUsername}
+                    onFocus={() => setFocusedInput('username')}
+                    onBlur={() => setFocusedInput(null)}
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+
+              {/* Password */}
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabel}>Password</Text>
+                <View style={[
+                  styles.inputContainer,
+                  focusedInput === 'password' && styles.inputFocused
+                ]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your password"
+                    placeholderTextColor={colors.neutral.gray300}
+                    value={password}
+                    onChangeText={setPassword}
+                    onFocus={() => setFocusedInput('password')}
+                    onBlur={() => setFocusedInput(null)}
+                    secureTextEntry
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Remember Me */}
+            <TouchableOpacity 
+              style={styles.rememberContainer}
+              onPress={() => setRememberMe(!rememberMe)}
+              activeOpacity={0.7}
+            >
+              <View style={[
+                styles.checkbox,
+                rememberMe && styles.checkboxChecked
+              ]}>
+                {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.rememberText}>Remember me</Text>
+            </TouchableOpacity>
+
+            {/* Error Message */}
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
+            {/* Sign In Button */}
+            <TouchableOpacity
+              style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
+              onPress={handleLogin}
+              disabled={isLoading}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.signInButtonText}>
+                {isLoading ? 'Signing In...' : 'Sign In'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Forgot Password */}
+            <TouchableOpacity style={styles.forgotButton} activeOpacity={0.7}>
+              <Text style={styles.forgotText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            {/* Footer */}
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                By signing in, you agree to our Terms of Service
+              </Text>
+              <Text style={styles.footerText}>
+                Powered by Xtream Codes API
+              </Text>
+            </View>
+          </Animated.View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0e27',
+    backgroundColor: colors.primary.black,
   },
+  
+  // Background
+  backgroundImage: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  darkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: rgba(colors.primary.black, 0.65),
+  },
+  gradientOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  
+  // Content
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    maxWidth: 480,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  header: {
     alignItems: 'center',
-    marginBottom: 56,
   },
-  logo: {
-    fontSize: 56,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 12,
-    letterSpacing: 2,
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.huge,
+    paddingHorizontal: spacing.lg,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#8892b0',
-    letterSpacing: 0.5,
-  },
-  form: {
+  
+  // Form Card - Semi-transparent dark card
+  formCard: {
     width: '100%',
+    maxWidth: 420,
+    backgroundColor: rgba(colors.primary.black, 0.75),
+    borderRadius: borderRadius.lg,
+    padding: isSmallScreen ? spacing.xxl : spacing.huge,
+    // Subtle shadow for depth
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+    elevation: 16,
+  },
+  
+  // Brand
+  brandContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
+  },
+  brandName: {
+    fontSize: 36,
+    fontWeight: '700' as any,
+    color: colors.primary.accent,
+    letterSpacing: typography.letterSpacing.tight,
+  },
+  brandTagline: {
+    fontSize: typography.size.sm,
+    color: colors.neutral.gray200,
+    marginTop: spacing.xs,
+    letterSpacing: typography.letterSpacing.wide,
+  },
+  
+  // Form Header
+  formTitle: {
+    fontSize: 30,
+    fontWeight: '700' as any,
+    color: colors.neutral.white,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  formSubtitle: {
+    fontSize: typography.size.base,
+    color: colors.neutral.gray200,
+    textAlign: 'center',
+    marginBottom: spacing.xxl,
+  },
+  
+  // Inputs
+  inputsContainer: {
+    gap: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  inputWrapper: {
+    gap: spacing.sm,
+  },
+  inputLabel: {
+    fontSize: typography.size.sm,
+    fontWeight: '500' as any,
+    color: colors.neutral.gray100,
   },
   inputContainer: {
-    marginBottom: 20,
+    backgroundColor: rgba(colors.neutral.gray600, 0.8),
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  label: {
-    color: '#ccd6f6',
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  inputFocused: {
+    borderColor: colors.primary.accent,
+    backgroundColor: rgba(colors.neutral.gray600, 1),
   },
   input: {
-    backgroundColor: '#172a45',
-    borderWidth: 2,
-    borderColor: '#233554',
-    borderRadius: 12,
-    padding: 16,
-    color: '#fff',
-    fontSize: 16,
+    color: colors.neutral.white,
+    fontSize: typography.size.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.base,
+    fontWeight: '400' as any,
   },
-  button: {
-    backgroundColor: '#64ffda',
-    padding: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 16,
-    shadowColor: '#64ffda',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-    shadowOpacity: 0,
-  },
-  buttonText: {
-    color: '#0a192f',
-    fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  errorContainer: {
-    backgroundColor: 'rgba(255, 107, 107, 0.15)',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 107, 107, 0.4)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+  
+  // Remember Me
+  rememberContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
   },
-  errorIcon: {
-    fontSize: 24,
-    marginRight: 12,
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.neutral.gray400,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary.accent,
+    borderColor: colors.primary.accent,
+  },
+  checkmark: {
+    color: colors.neutral.white,
+    fontSize: 12,
+    fontWeight: '700' as any,
+  },
+  rememberText: {
+    fontSize: typography.size.sm,
+    color: colors.neutral.gray200,
+  },
+  
+  // Error
+  errorContainer: {
+    backgroundColor: rgba(colors.semantic.error, 0.15),
+    borderRadius: borderRadius.sm,
+    padding: spacing.base,
+    marginBottom: spacing.lg,
   },
   errorText: {
-    color: '#ff6b6b',
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-    lineHeight: 20,
-  },
-  helpText: {
-    color: '#8892b0',
-    fontSize: 13,
+    color: colors.semantic.errorLight,
+    fontSize: typography.size.sm,
     textAlign: 'center',
-    marginTop: 32,
-    lineHeight: 20,
+  },
+  
+  // Sign In Button - Full width, solid red, 50px height
+  signInButton: {
+    backgroundColor: colors.primary.accent,
+    borderRadius: borderRadius.sm,
+    paddingVertical: spacing.base,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  signInButtonDisabled: {
+    opacity: 0.6,
+  },
+  signInButtonText: {
+    color: colors.neutral.white,
+    fontSize: typography.size.md,
+    fontWeight: '600' as any,
+    letterSpacing: typography.letterSpacing.wide,
+  },
+  
+  // Forgot Password
+  forgotButton: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  forgotText: {
+    color: colors.neutral.gray200,
+    fontSize: typography.size.sm,
+  },
+  
+  // Footer
+  footer: {
+    marginTop: spacing.xxl,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  footerText: {
+    color: rgba(colors.neutral.gray300, 0.6),
+    fontSize: typography.size.xs,
+    textAlign: 'center',
   },
 });
