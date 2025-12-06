@@ -16,19 +16,40 @@ import {
 /**
  * Xtream Codes API Service
  * Handles all IPTV API communications using direct credentials
+ * 
+ * Performance optimizations:
+ * - Smart caching with stale-while-revalidate pattern
+ * - Background refresh for stale data
+ * - Request deduplication
+ * - Prefetching support
  */
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  isRefreshing?: boolean;
+}
+
 class IPTVService {
   private axiosInstance: AxiosInstance;
   private credentials: IPTVCredentials | null = null;
   private baseUrl: string = '';
   
-  // Cache for faster subsequent loads
-  private cache: Map<string, { data: any; timestamp: number }> = new Map();
-  private CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
+  // Enhanced cache with stale-while-revalidate
+  private cache: Map<string, CacheEntry<any>> = new Map();
+  private CACHE_TTL = 5 * 60 * 1000; // 5 minutes - fresh
+  private CACHE_STALE_TTL = 30 * 60 * 1000; // 30 minutes - stale but usable
+  
+  // Request deduplication - prevent duplicate in-flight requests
+  private pendingRequests: Map<string, Promise<any>> = new Map();
+  
+  // Prefetch queue
+  private prefetchQueue: Set<string> = new Set();
+  private isPrefetching = false;
 
   constructor() {
     this.axiosInstance = axios.create({
-      timeout: 30000, // 30 seconds for proxy requests
+      timeout: 60000, // 60 seconds for large content lists
       headers: {
         'Content-Type': 'application/json',
       },
@@ -36,24 +57,149 @@ class IPTVService {
   }
   
   /**
-   * Get cached data or fetch new
+   * Smart cache with stale-while-revalidate pattern
+   * Returns stale data immediately while refreshing in background
    */
-  private async getCachedOrFetch<T>(cacheKey: string, fetchFn: () => Promise<T>): Promise<T> {
+  private async getCachedOrFetch<T>(
+    cacheKey: string, 
+    fetchFn: () => Promise<T>,
+    options: { forceRefresh?: boolean; backgroundRefresh?: boolean } = {}
+  ): Promise<T> {
     const cached = this.cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.data as T;
+    const now = Date.now();
+    
+    // Check if we have cached data
+    if (cached) {
+      const age = now - cached.timestamp;
+      
+      // Fresh cache - return immediately
+      if (age < this.CACHE_TTL && !options.forceRefresh) {
+        return cached.data as T;
+      }
+      
+      // Stale but usable - return and refresh in background
+      if (age < this.CACHE_STALE_TTL && !options.forceRefresh) {
+        // Trigger background refresh if not already refreshing
+        if (!cached.isRefreshing) {
+          this.backgroundRefresh(cacheKey, fetchFn);
+        }
+        return cached.data as T;
+      }
     }
     
-    const data = await fetchFn();
-    this.cache.set(cacheKey, { data, timestamp: Date.now() });
-    return data;
+    // No cache or expired - fetch fresh data with deduplication
+    return this.deduplicatedFetch(cacheKey, fetchFn);
+  }
+  
+  /**
+   * Deduplicate concurrent requests for the same resource
+   */
+  private async deduplicatedFetch<T>(cacheKey: string, fetchFn: () => Promise<T>): Promise<T> {
+    // Check if request is already in flight
+    const pending = this.pendingRequests.get(cacheKey);
+    if (pending) {
+      return pending as Promise<T>;
+    }
+    
+    // Create new request
+    const request = fetchFn()
+      .then((data) => {
+        this.cache.set(cacheKey, { data, timestamp: Date.now() });
+        return data;
+      })
+      .finally(() => {
+        this.pendingRequests.delete(cacheKey);
+      });
+    
+    this.pendingRequests.set(cacheKey, request);
+    return request;
+  }
+  
+  /**
+   * Refresh cache in background without blocking
+   */
+  private backgroundRefresh<T>(cacheKey: string, fetchFn: () => Promise<T>) {
+    const cached = this.cache.get(cacheKey);
+    if (cached) {
+      cached.isRefreshing = true;
+    }
+    
+    fetchFn()
+      .then((data) => {
+        this.cache.set(cacheKey, { data, timestamp: Date.now() });
+      })
+      .catch((error) => {
+        console.warn(`Background refresh failed for ${cacheKey}:`, error);
+      })
+      .finally(() => {
+        const entry = this.cache.get(cacheKey);
+        if (entry) {
+          entry.isRefreshing = false;
+        }
+      });
+  }
+  
+  /**
+   * Prefetch content for better UX
+   * Call this to preload data for tabs user might navigate to
+   */
+  async prefetch(contentType: 'live' | 'movies' | 'series') {
+    const prefetchTasks: Promise<any>[] = [];
+    
+    if (contentType === 'live' || contentType === 'movies' || contentType === 'series') {
+      // Prefetch categories first (smaller payload)
+      if (contentType === 'live') {
+        prefetchTasks.push(this.getLiveCategories());
+      } else if (contentType === 'movies') {
+        prefetchTasks.push(this.getVODCategories());
+      } else {
+        prefetchTasks.push(this.getSeriesCategories());
+      }
+    }
+    
+    // Execute prefetch in background
+    Promise.all(prefetchTasks).catch(() => {
+      // Silent fail for prefetch
+    });
+  }
+  
+  /**
+   * Prefetch all content types (call on app start)
+   */
+  async prefetchAll() {
+    // Stagger prefetch requests to avoid overwhelming the server
+    setTimeout(() => this.prefetch('live'), 0);
+    setTimeout(() => this.prefetch('movies'), 1000);
+    setTimeout(() => this.prefetch('series'), 2000);
   }
   
   /**
    * Clear cache (useful for refresh)
    */
-  clearCache() {
-    this.cache.clear();
+  clearCache(cacheKey?: string) {
+    if (cacheKey) {
+      this.cache.delete(cacheKey);
+    } else {
+      this.cache.clear();
+    }
+  }
+  
+  /**
+   * Get cache stats for debugging
+   */
+  getCacheStats() {
+    const stats: Record<string, { age: number; isStale: boolean }> = {};
+    const now = Date.now();
+    
+    this.cache.forEach((entry, key) => {
+      const age = now - entry.timestamp;
+      stats[key] = {
+        age: Math.round(age / 1000),
+        isStale: age > this.CACHE_TTL,
+      };
+    });
+    
+    return stats;
   }
   
   /**

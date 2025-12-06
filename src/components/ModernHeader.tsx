@@ -6,14 +6,33 @@ import {
   TextInput,
   StyleSheet,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { colors, typography, spacing, borderRadius, rgba } from '../constants/theme';
+import { isMobile, isTablet, isTV } from '../utils/responsive';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+export type ContentType = 'live' | 'movies' | 'series';
+
+interface Tab {
+  key: ContentType;
+  label: string;
+}
+
+const TABS: Tab[] = [
+  { key: 'live', label: 'Live TV' },
+  { key: 'movies', label: 'Movies' },
+  { key: 'series', label: 'Series' },
+];
 
 interface ModernHeaderProps {
   username?: string;
   onLogout: () => void;
   onSearch?: (query: string) => void;
   showSearch?: boolean;
+  activeTab?: ContentType;
+  onTabChange?: (tab: ContentType) => void;
 }
 
 export const ModernHeader: React.FC<ModernHeaderProps> = ({
@@ -21,10 +40,14 @@ export const ModernHeader: React.FC<ModernHeaderProps> = ({
   onLogout,
   onSearch,
   showSearch = true,
+  activeTab = 'live',
+  onTabChange,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchExpanded, setSearchExpanded] = useState(false);
-  const searchWidth = useRef(new Animated.Value(44)).current;
+  const searchCollapsedWidth = isMobile ? 36 : 44;
+  const searchExpandedWidth = isMobile ? SCREEN_WIDTH - 120 : 280;
+  const searchWidth = useRef(new Animated.Value(searchCollapsedWidth)).current;
   const inputRef = useRef<TextInput>(null);
 
   const handleSearch = (text: string) => {
@@ -38,7 +61,7 @@ export const ModernHeader: React.FC<ModernHeaderProps> = ({
     if (searchExpanded) {
       // Collapse
       Animated.timing(searchWidth, {
-        toValue: 44,
+        toValue: searchCollapsedWidth,
         duration: 200,
         useNativeDriver: false,
       }).start();
@@ -48,7 +71,7 @@ export const ModernHeader: React.FC<ModernHeaderProps> = ({
     } else {
       // Expand
       Animated.timing(searchWidth, {
-        toValue: 280,
+        toValue: searchExpandedWidth,
         duration: 200,
         useNativeDriver: false,
       }).start(() => {
@@ -58,9 +81,43 @@ export const ModernHeader: React.FC<ModernHeaderProps> = ({
     }
   };
 
+  const getSearchPlaceholder = () => {
+    switch (activeTab) {
+      case 'live':
+        return 'Search for channels...';
+      case 'movies':
+        return 'Search for movies...';
+      case 'series':
+        return 'Search for series...';
+      default:
+        return 'Search...';
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
+        {/* Left Section - Navigation Tabs */}
+        <View style={styles.leftSection}>
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={styles.tab}
+                onPress={() => onTabChange?.(tab.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+                  {tab.label}
+                </Text>
+                {isActive && <View style={styles.activeIndicator} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Right Section - Search & Logout */}
         <View style={styles.rightSection}>
           {/* Expandable Search Icon */}
           {showSearch && (
@@ -76,7 +133,7 @@ export const ModernHeader: React.FC<ModernHeaderProps> = ({
                 <TextInput
                   ref={inputRef}
                   style={styles.searchInput}
-                  placeholder="Search..."
+                  placeholder={getSearchPlaceholder()}
                   placeholderTextColor={rgba(colors.neutral.white, 0.4)}
                   value={searchQuery}
                   onChangeText={handleSearch}
@@ -105,54 +162,86 @@ export const ModernHeader: React.FC<ModernHeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'transparent',
-    paddingTop: spacing.huge,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.giant, // 80px horizontal margins
+    paddingTop: isMobile ? spacing.lg : spacing.huge,
+    paddingBottom: isMobile ? spacing.sm : spacing.md,
+    paddingHorizontal: isMobile ? spacing.md : spacing.giant,
   },
   topRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: isMobile ? spacing.md : spacing.xxxl,
+  },
+  tab: {
+    position: 'relative',
+    paddingVertical: spacing.sm,
+  },
+  tabLabel: {
+    color: rgba(colors.neutral.white, 0.5),
+    fontSize: isMobile ? typography.size.xs : typography.size.sm,
+    fontWeight: '500' as any,
+    letterSpacing: isMobile ? 1 : typography.letterSpacing.caps,
+    textTransform: 'uppercase' as any,
+  },
+  tabLabelActive: {
+    color: colors.neutral.white,
+    fontWeight: '600' as any,
+  },
+  activeIndicator: {
+    position: 'absolute',
+    bottom: -4,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: colors.primary.accent,
+    borderRadius: 1,
   },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xl,
+    gap: isMobile ? spacing.sm : spacing.xl,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: rgba(colors.neutral.white, 0.08),
-    borderRadius: borderRadius.md,
-    height: 44,
+    backgroundColor: rgba(colors.neutral.gray600, 0.8),
+    borderRadius: borderRadius.sm,
+    height: isMobile ? 36 : 44,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: rgba(colors.neutral.white, 0.1),
   },
   searchIconButton: {
-    width: 44,
-    height: 44,
+    width: isMobile ? 36 : 44,
+    height: isMobile ? 36 : 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchIcon: {
-    fontSize: typography.size.lg,
-    opacity: 0.8,
+    fontSize: isMobile ? typography.size.sm : typography.size.base,
+    color: colors.neutral.gray200,
   },
   searchInput: {
     flex: 1,
     color: colors.neutral.white,
-    fontSize: typography.size.base, // Body: 15px
+    fontSize: isMobile ? typography.size.xs : typography.size.sm,
     fontWeight: '400' as any,
     paddingRight: spacing.md,
-  },
+    paddingVertical: spacing.sm,
+  } as any,
   logoutButton: {
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: isMobile ? spacing.sm : spacing.md,
   },
   logoutText: {
     color: rgba(colors.neutral.white, 0.5),
-    fontSize: typography.size.xs, // Small: 11px
+    fontSize: typography.size.xs,
     fontWeight: '500' as any,
-    letterSpacing: typography.letterSpacing.caps, // Letter-spacing on all-caps
+    letterSpacing: isMobile ? 0.5 : typography.letterSpacing.caps,
     textTransform: 'uppercase' as any,
   },
 });

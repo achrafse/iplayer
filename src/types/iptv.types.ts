@@ -105,6 +105,8 @@ export interface VODInfo {
     video: any;
     audio: any;
     bitrate: number;
+    rating?: string;
+    backdrop_path?: string[];
   };
   movie_data: {
     stream_id: number;

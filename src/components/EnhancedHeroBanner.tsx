@@ -105,6 +105,7 @@ export const EnhancedHeroBanner: React.FC<EnhancedHeroBannerProps> = ({
             uri={imageUrl}
             style={styles.backgroundImage}
             resizeMode="cover"
+            showPlaceholder={false}
           />
         ) : (
           <View style={[styles.backgroundImage, styles.placeholder]} />
@@ -195,10 +196,10 @@ export const EnhancedHeroBanner: React.FC<EnhancedHeroBannerProps> = ({
               {/* Small heart/favorite icon button */}
               <FocusableElement
                 onPress={onFavoritePress}
-                style={[styles.iconButton, isFavorite && styles.iconButtonActive]}
+                style={{...styles.iconButton, ...(isFavorite ? styles.iconButtonActive : {})}}
                 testID={`${testID}-favorite-button`}
               >
-                <Text style={[styles.iconButtonText, isFavorite && styles.iconButtonTextActive]}>
+                <Text style={[styles.iconButtonText, isFavorite ? styles.iconButtonTextActive : null]}>
                   {isFavorite ? '♥' : '♡'}
                 </Text>
               </FocusableElement>
@@ -253,7 +254,9 @@ const styles = StyleSheet.create({
     fontSize: isTV ? 72 : isMobile ? 40 : 64, // Hero: 48-64px desktop, 40px mobile
     fontWeight: '700' as any,
     letterSpacing: typography.letterSpacing.tight,
-    textShadow: '0 3px 10px rgba(0, 0, 0, 0.8)',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 10,
     marginBottom: spacing.base,
     lineHeight: isTV ? 78 : isMobile ? 46 : 70,
   },
@@ -283,7 +286,9 @@ const styles = StyleSheet.create({
     lineHeight: isTV ? 32 : isMobile ? 24 : 26,
     fontWeight: '400' as any,
     marginBottom: spacing.xl,
-    textShadow: '0 1px 4px rgba(0, 0, 0, 0.7)',
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
     maxWidth: isTV ? 800 : 520,
   },
   buttonsContainer: {

@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../src/contexts/AuthContext';
 import { colors, typography, spacing, borderRadius, rgba } from '../src/constants/theme';
+import { isMobile } from '../src/utils/responsive';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 768;
@@ -265,17 +266,17 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.huge,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: isMobile ? spacing.xl : spacing.huge,
+    paddingHorizontal: isMobile ? spacing.md : spacing.lg,
   },
   
   // Form Card - Semi-transparent dark card
   formCard: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: isMobile ? 360 : 420,
     backgroundColor: rgba(colors.primary.black, 0.75),
-    borderRadius: borderRadius.lg,
-    padding: isSmallScreen ? spacing.xxl : spacing.huge,
+    borderRadius: isMobile ? borderRadius.md : borderRadius.lg,
+    padding: isMobile ? spacing.lg : (isSmallScreen ? spacing.xxl : spacing.huge),
     // Subtle shadow for depth
     boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
     elevation: 16,
@@ -284,16 +285,16 @@ const styles = StyleSheet.create({
   // Brand
   brandContainer: {
     alignItems: 'center',
-    marginBottom: spacing.xxl,
+    marginBottom: isMobile ? spacing.lg : spacing.xxl,
   },
   brandName: {
-    fontSize: 36,
+    fontSize: isMobile ? 28 : 36,
     fontWeight: '700' as any,
     color: colors.primary.accent,
     letterSpacing: typography.letterSpacing.tight,
   },
   brandTagline: {
-    fontSize: typography.size.sm,
+    fontSize: isMobile ? typography.size.xs : typography.size.sm,
     color: colors.neutral.gray200,
     marginTop: spacing.xs,
     letterSpacing: typography.letterSpacing.wide,
@@ -301,29 +302,29 @@ const styles = StyleSheet.create({
   
   // Form Header
   formTitle: {
-    fontSize: 30,
+    fontSize: isMobile ? 24 : 30,
     fontWeight: '700' as any,
     color: colors.neutral.white,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   formSubtitle: {
-    fontSize: typography.size.base,
+    fontSize: isMobile ? typography.size.sm : typography.size.base,
     color: colors.neutral.gray200,
     textAlign: 'center',
-    marginBottom: spacing.xxl,
+    marginBottom: isMobile ? spacing.lg : spacing.xxl,
   },
   
   // Inputs
   inputsContainer: {
-    gap: spacing.lg,
-    marginBottom: spacing.lg,
+    gap: isMobile ? spacing.md : spacing.lg,
+    marginBottom: isMobile ? spacing.md : spacing.lg,
   },
   inputWrapper: {
-    gap: spacing.sm,
+    gap: isMobile ? spacing.xs : spacing.sm,
   },
   inputLabel: {
-    fontSize: typography.size.sm,
+    fontSize: isMobile ? typography.size.xs : typography.size.sm,
     fontWeight: '500' as any,
     color: colors.neutral.gray100,
   },
@@ -339,9 +340,9 @@ const styles = StyleSheet.create({
   },
   input: {
     color: colors.neutral.white,
-    fontSize: typography.size.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.base,
+    fontSize: isMobile ? typography.size.base : typography.size.md,
+    paddingHorizontal: isMobile ? spacing.md : spacing.lg,
+    paddingVertical: isMobile ? spacing.md : spacing.base,
     fontWeight: '400' as any,
   },
   
@@ -392,18 +393,18 @@ const styles = StyleSheet.create({
   signInButton: {
     backgroundColor: colors.primary.accent,
     borderRadius: borderRadius.sm,
-    paddingVertical: spacing.base,
-    height: 50,
+    paddingVertical: isMobile ? spacing.md : spacing.base,
+    height: isMobile ? 44 : 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: isMobile ? spacing.md : spacing.lg,
   },
   signInButtonDisabled: {
     opacity: 0.6,
   },
   signInButtonText: {
     color: colors.neutral.white,
-    fontSize: typography.size.md,
+    fontSize: isMobile ? typography.size.base : typography.size.md,
     fontWeight: '600' as any,
     letterSpacing: typography.letterSpacing.wide,
   },

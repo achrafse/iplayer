@@ -94,21 +94,23 @@ export const Button: React.FC<ButtonProps> = ({
         duration: animations.duration.normal,
         useNativeDriver: false,
       }),
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(glowAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0.6,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start(),
     ]).start();
+    
+    // Start glow animation separately as it's a loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0.6,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
   };
 
   const handleBlur = () => {
@@ -334,7 +336,7 @@ export const Button: React.FC<ButtonProps> = ({
           style={buttonStyle}
         >
           <LinearGradient
-            colors={variantStyles.gradient}
+            colors={variantStyles.gradient as [string, string, ...string[]]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradientContainer}

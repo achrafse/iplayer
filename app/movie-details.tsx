@@ -5,30 +5,21 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Dimensions,
-  ImageBackground,
-  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFavorites } from '../src/contexts/FavoritesContext';
+import { useAuth } from '../src/contexts/AuthContext';
 import { iptvService } from '../src/services/iptv.service';
 import { VODInfo } from '../src/types/iptv.types';
-import { Button } from '../src/components/ui/Button';
-import { colors, typography, spacing, borderRadius, shadows, rgba } from '../src/constants/theme';
-import { 
-  scaledFont, 
-  scaleSpacing, 
-  getScaledRadius, 
-  isTV,
-  getPosterDimensions,
-  getHeroBannerHeight,
-  getContainerPadding 
-} from '../src/utils/responsive';
+import { colors, typography, spacing, borderRadius, rgba } from '../src/constants/theme';
+import { getBackdropUrl, sanitizeImageUrl } from '../src/utils/imageUrls';
+import { OptimizedImage } from '../src/components/OptimizedImage';
+import { isMobile } from '../src/utils/responsive';
 
-const { width } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function MovieDetailsScreen() {
   const router = useRouter();
@@ -38,16 +29,20 @@ export default function MovieDetailsScreen() {
     poster: string;
   }>();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [movieInfo, setMovieInfo] = useState<VODInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const streamId = parseInt(params.streamId);
+  const streamId = Number.parseInt(params.streamId);
   const isFav = isFavorite(streamId);
 
   useEffect(() => {
-    loadMovieDetails();
-  }, [params.streamId]);
+    // Wait for auth to be ready before loading
+    if (isAuthenticated && !authLoading) {
+      loadMovieDetails();
+    }
+  }, [params.streamId, isAuthenticated, authLoading]);
 
   const loadMovieDetails = async () => {
     try {
@@ -90,17 +85,10 @@ export default function MovieDetailsScreen() {
     }
   };
 
-  const openTrailer = () => {
-    if (movieInfo?.info.youtube_trailer) {
-      // Open trailer URL
-      console.log('Open trailer:', movieInfo.info.youtube_trailer);
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E50914" />
+        <ActivityIndicator size="large" color={colors.primary.accent} />
         <Text style={styles.loadingText}>Loading movie details...</Text>
       </View>
     );
@@ -118,175 +106,155 @@ export default function MovieDetailsScreen() {
   }
 
   const info = movieInfo.info;
-  const posterUrl = info.cover_big || info.movie_image || params.poster;
+  const posterUrl = sanitizeImageUrl(info.cover_big) || sanitizeImageUrl(info.movie_image) || sanitizeImageUrl(params.poster);
+  // Get backdrop URL (parses newline-separated URLs from API)
+  const backdropUrl = sanitizeImageUrl(getBackdropUrl(info)) || posterUrl;
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content}>
-        {/* Backdrop Hero Section */}
-        <ImageBackground
-          source={{ uri: posterUrl }}
-          style={styles.backdropSection}
+      {/* Full-width Backdrop */}
+      <View style={styles.backdrop}>
+        <OptimizedImage
+          uri={backdropUrl || undefined}
+          style={StyleSheet.absoluteFillObject}
           resizeMode="cover"
-        >
-          <LinearGradient
-            colors={[
-              'transparent',
-              rgba(colors.primary.black, 0.7),
-              colors.primary.black,
-            ]}
-            locations={[0, 0.5, 1]}
-            style={styles.backdropGradient}
-          >
-            {/* Floating Back Button */}
-            <View style={styles.floatingButtonContainer}>
-              <TouchableOpacity style={styles.floatingBackButton} onPress={handleBack}>
-                <Text style={styles.floatingButtonIcon}>←</Text>
+          showLoader={false}
+          showPlaceholder={false}
+        />
+        <LinearGradient
+          colors={[
+            'rgba(10, 10, 10, 0.3)',
+            'rgba(18, 18, 18, 0.7)',
+            colors.primary.background,
+          ]}
+          locations={[0, 0.5, 1]}
+          style={styles.backdropGradient}
+        />
+      </View>
+
+      {/* Back Button - Fixed Position */}
+      <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+        <Text style={styles.backButtonText}>←</Text>
+      </TouchableOpacity>
+
+      {/* Content */}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          {/* Poster */}
+          <View style={styles.posterContainer}>
+            <OptimizedImage
+              uri={posterUrl || undefined}
+              style={styles.poster}
+              resizeMode="cover"
+            />
+          </View>
+
+          {/* Movie Info */}
+          <View style={styles.infoContainer}>
+            {/* Title */}
+            <Text style={styles.title} numberOfLines={2}>
+              {info.name || params.name}
+            </Text>
+            
+            {Boolean(info.o_name && info.o_name !== info.name) && (
+              <Text style={styles.originalTitle}>{info.o_name}</Text>
+            )}
+
+            {/* Meta Row */}
+            <View style={styles.metaRow}>
+              {Boolean(info.releasedate) && (
+                <Text style={styles.metaText}>
+                  {info.releasedate.split('-')[0]}
+                </Text>
+              )}
+              {Boolean(info.duration) && (
+                <>
+                  <Text style={styles.metaDot}>•</Text>
+                  <Text style={styles.metaText}>{info.duration}</Text>
+                </>
+              )}
+              {info.rating && (
+                <>
+                  <Text style={styles.metaDot}>•</Text>
+                  <View style={styles.ratingBadge}>
+                    <Text style={styles.ratingText}>⭐ {info.rating}</Text>
+                  </View>
+                </>
+              )}
+            </View>
+
+            {/* Genres */}
+            {Boolean(info.genre) && (
+              <View style={styles.genreRow}>
+                {info.genre.split(',').slice(0, 3).map((genre) => (
+                  <View key={genre.trim()} style={styles.genreTag}>
+                    <Text style={styles.genreText}>{genre.trim()}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.playButton} onPress={handlePlay}>
+                <Text style={styles.playButtonIcon}>▶</Text>
+                <Text style={styles.playButtonText}>Play</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.iconButton, isFav && styles.iconButtonActive]}
+                onPress={() => toggleFavorite(streamId)}
+              >
+                <Text style={styles.iconButtonText}>{isFav ? '❤️' : '♡'}</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.heroContent}>
-              <View style={styles.posterWrapper}>
-                <View style={styles.posterContainer}>
-                  {posterUrl ? (
-                    <Image
-                      source={{ uri: posterUrl }}
-                      style={styles.poster}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={[styles.poster, styles.posterPlaceholder]}>
-                      <Text style={styles.posterPlaceholderText}>🎬</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
+          </View>
+        </View>
 
-              <View style={styles.heroInfo}>
-                <Text style={styles.movieTitle}>{info.name || params.name}</Text>
-                {info.o_name && info.o_name !== info.name && (
-                  <Text style={styles.originalTitle}>{info.o_name}</Text>
-                )}
-
-                {/* Stats Row with Action Buttons */}
-                <View style={styles.statsAndActionsContainer}>
-                  <View style={styles.statsRow}>
-                    {info.releasedate && (
-                      <View style={styles.statCard}>
-                        <Text style={styles.statIcon}>📅</Text>
-                        <View>
-                          <Text style={styles.statLabel}>Year</Text>
-                          <Text style={styles.statValue}>{info.releasedate.split('-')[0]}</Text>
-                        </View>
-                      </View>
-                    )}
-                    {info.duration && (
-                      <View style={styles.statCard}>
-                        <Text style={styles.statIcon}>⏱️</Text>
-                        <View>
-                          <Text style={styles.statLabel}>Duration</Text>
-                          <Text style={styles.statValue}>{info.duration}</Text>
-                        </View>
-                      </View>
-                    )}
-                    {info.rating_count_kinopoisk && (
-                      <View style={styles.statCard}>
-                        <Text style={styles.statIcon}>⭐</Text>
-                        <View>
-                          <Text style={styles.statLabel}>Rating</Text>
-                          <Text style={styles.statValue}>{info.rating_count_kinopoisk}</Text>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={styles.inlineButtonsRow}>
-                    <View style={styles.inlineButton}>
-                      <Button
-                        title="▶ Play"
-                        variant="primary"
-                        size="sm"
-                        onPress={handlePlay}
-                        fullWidth
-                      />
-                    </View>
-                    <View style={styles.inlineButton}>
-                      <Button
-                        title={isFav ? '❤️' : '🤍'}
-                        variant={isFav ? 'danger' : 'secondary'}
-                        size="sm"
-                        onPress={() => toggleFavorite(streamId)}
-                        fullWidth
-                      />
-                    </View>
-                    {info.youtube_trailer && (
-                      <View style={styles.inlineButton}>
-                        <Button
-                          title="🎥"
-                          variant="secondary"
-                          size="sm"
-                          onPress={openTrailer}
-                          fullWidth
-                        />
-                      </View>
-                    )}
-                  </View>
-                </View>
-
-                {info.genre && (
-                  <View style={styles.genreContainer}>
-                    {info.genre.split(',').slice(0, 4).map((genre, index) => (
-                      <View key={index} style={styles.genreTag}>
-                        <Text style={styles.genreText}>{genre.trim()}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            </View>
-          </LinearGradient>
-        </ImageBackground>
-
-        {/* Description */}
-        {(info.description || info.plot) && (
+        {/* Description Section */}
+        {Boolean(info.description || info.plot) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Overview</Text>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>Overview</Text>
+              <View style={styles.sectionTitleUnderline} />
+            </View>
             <Text style={styles.description}>
               {info.description || info.plot}
             </Text>
           </View>
         )}
 
-        {/* Cast & Crew */}
-        {(info.director || info.actors || info.cast) && (
+        {/* Cast & Crew Section */}
+        {Boolean(info.director || info.actors || info.cast) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Cast & Crew</Text>
-            <View style={styles.creditsCard}>
-              {info.director && (
-                <View style={styles.creditRow}>
-                  <View style={styles.creditLabelContainer}>
-                    <Text style={styles.creditIcon}>🎬</Text>
-                    <Text style={styles.creditLabel}>Director</Text>
-                  </View>
-                  <Text style={styles.creditValue}>{info.director}</Text>
-                </View>
-              )}
-
-              {(info.actors || info.cast) && (
-                <View style={styles.creditRow}>
-                  <View style={styles.creditLabelContainer}>
-                    <Text style={styles.creditIcon}>🎭</Text>
-                    <Text style={styles.creditLabel}>Cast</Text>
-                  </View>
-                  <Text style={styles.creditValue}>
-                    {info.actors || info.cast}
-                  </Text>
-                </View>
-              )}
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>Cast & Crew</Text>
+              <View style={styles.sectionTitleUnderline} />
             </View>
+            
+            {Boolean(info.director) && (
+              <View style={styles.creditItem}>
+                <Text style={styles.creditLabel}>Director</Text>
+                <Text style={styles.creditValue}>{info.director}</Text>
+              </View>
+            )}
+
+            {Boolean(info.actors || info.cast) && (
+              <View style={styles.creditItem}>
+                <Text style={styles.creditLabel}>Cast</Text>
+                <Text style={styles.creditValue}>{info.actors || info.cast}</Text>
+              </View>
+            )}
           </View>
         )}
 
-        <View style={{ height: 40 }} />
+        {/* Bottom Spacer */}
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
@@ -295,8 +263,10 @@ export default function MovieDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primary.black,
+    backgroundColor: colors.primary.background,
   },
+  
+  // Loading States
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -305,257 +275,274 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: colors.neutral.gray200,
-    marginTop: scaleSpacing(spacing.lg),
-    fontSize: scaledFont(typography.size.lg),
-    fontWeight: '500' as any,
+    marginTop: spacing.lg,
+    fontSize: typography.size.base,
+    fontWeight: '500' as const,
   },
   errorText: {
     color: colors.semantic.error,
-    fontSize: scaledFont(typography.size.lg),
-    marginBottom: scaleSpacing(spacing.lg),
-    fontWeight: '600' as any,
+    fontSize: typography.size.lg,
+    marginBottom: spacing.lg,
+    fontWeight: '600' as const,
   },
   retryButton: {
     backgroundColor: colors.primary.accent,
-    paddingVertical: scaleSpacing(spacing.md),
-    paddingHorizontal: scaleSpacing(spacing.xl),
-    borderRadius: borderRadius.button, // Minimal corners
-    // No heavy shadows
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.md,
   },
   retryButtonText: {
     color: colors.neutral.white,
-    fontSize: scaledFont(typography.size.md),
-    fontWeight: '600' as any,
+    fontSize: typography.size.base,
+    fontWeight: '600' as const,
   },
-  floatingButtonContainer: {
+
+  // Backdrop
+  backdrop: {
     position: 'absolute',
-    top: scaleSpacing(spacing.xl + spacing.lg),
-    right: scaleSpacing(spacing.xl),
-    zIndex: 10,
-  },
-  floatingBackButton: {
-    width: isTV ? 56 : 44,
-    height: isTV ? 56 : 44,
-    borderRadius: isTV ? 28 : 22,
-    backgroundColor: rgba(colors.primary.background, 0.9),
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: rgba(colors.neutral.white, 0.3),
-    // No heavy shadows
-  },
-  floatingButtonIcon: {
-    fontSize: scaledFont(typography.size.xl),
-    color: colors.neutral.white,
-    fontWeight: '600' as any,
-  },
-  content: {
-    flex: 1,
-  },
-  backdropSection: {
-    width: '100%',
-    minHeight: getHeroBannerHeight(),
+    top: 0,
+    left: 0,
+    right: 0,
+    height: screenWidth * 0.5,
   },
   backdropGradient: {
-    width: '100%',
-    minHeight: getHeroBannerHeight(),
-    paddingTop: scaleSpacing(spacing.huge + spacing.xxl),
+    flex: 1,
   },
-  heroContent: {
-    flexDirection: 'row',
-    padding: getContainerPadding(),
-    paddingTop: scaleSpacing(spacing.xxl),
-    gap: scaleSpacing(spacing.xxl),
+
+  // Back Button
+  backButton: {
+    position: 'absolute',
+    top: spacing.huge,
+    left: spacing.giant,
+    zIndex: 100,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: rgba(colors.primary.black, 0.6),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: rgba(colors.neutral.white, 0.2),
   },
-  posterWrapper: {
-    ...shadows.hero,
+  backButtonText: {
+    fontSize: typography.size.xl,
+    color: colors.neutral.white,
+    fontWeight: '600' as const,
   },
+
+  // Scroll View
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: isMobile ? screenWidth * 0.4 : screenWidth * 0.25,
+  },
+
+  // Hero Section
+  heroSection: {
+    flexDirection: isMobile ? 'column' : 'row',
+    paddingHorizontal: isMobile ? spacing.lg : spacing.giant,
+    gap: isMobile ? spacing.lg : spacing.xxl,
+    marginBottom: isMobile ? spacing.lg : spacing.xxl,
+    alignItems: isMobile ? 'center' : 'flex-start',
+  },
+  
+  // Poster
   posterContainer: {
-    width: getPosterDimensions().width,
+    width: isMobile ? 140 : 180,
     aspectRatio: 2 / 3,
-    borderRadius: getScaledRadius(borderRadius.xl),
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
-    borderWidth: isTV ? 5 : 3,
-    borderColor: rgba(colors.primary.accent, 0.3),
     backgroundColor: colors.primary.darkGray,
+    borderWidth: 1,
+    borderColor: rgba(colors.neutral.white, 0.1),
   },
   poster: {
     width: '100%',
     height: '100%',
-    backgroundColor: colors.primary.darkGray,
   },
   posterPlaceholder: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: rgba(colors.primary.mediumGray, 0.5),
+    backgroundColor: colors.primary.mediumGray,
   },
   posterPlaceholderText: {
-    fontSize: scaledFont(typography.size.hero),
+    fontSize: 48,
     opacity: 0.3,
   },
-  heroInfo: {
-    flex: 1,
+
+  // Info Container
+  infoContainer: {
+    flex: isMobile ? undefined : 1,
     justifyContent: 'center',
+    paddingVertical: isMobile ? 0 : spacing.lg,
+    alignItems: isMobile ? 'center' : 'flex-start',
+    width: isMobile ? '100%' : undefined,
   },
-  movieTitle: {
-    fontSize: scaledFont(typography.size.xxxl + 4),
-    fontWeight: '800' as any,
+  
+  // Title
+  title: {
+    fontSize: isMobile ? typography.size.xl : typography.size.xxxl,
+    fontWeight: '700' as const,
     color: colors.neutral.white,
-    marginBottom: scaleSpacing(spacing.md),
-    lineHeight: scaledFont(typography.size.xxxl * 1.4),
-    letterSpacing: typography.letterSpacing.tight,
+    marginBottom: spacing.xs,
+    letterSpacing: -0.5,
+    textAlign: isMobile ? 'center' : 'left',
   },
   originalTitle: {
-    fontSize: scaledFont(typography.size.lg),
-    color: colors.neutral.gray200,
+    fontSize: isMobile ? typography.size.sm : typography.size.base,
+    color: colors.neutral.gray300,
     fontStyle: 'italic',
-    marginBottom: scaleSpacing(spacing.lg),
-    fontWeight: '400' as any,
-  },
-  statsAndActionsContainer: {
-    marginBottom: scaleSpacing(spacing.xl),
-  },
-  statsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: scaleSpacing(spacing.md),
-    marginBottom: scaleSpacing(spacing.lg),
-  },
-  inlineButtonsRow: {
-    flexDirection: 'row',
-    gap: scaleSpacing(spacing.sm),
-    flexWrap: 'wrap',
-  },
-  inlineButton: {
-    minWidth: isTV ? 140 : 90,
-  },
-  statCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: rgba(colors.primary.mediumGray, 0.6),
-    paddingHorizontal: scaleSpacing(spacing.lg),
-    paddingVertical: scaleSpacing(spacing.md),
-    borderRadius: getScaledRadius(borderRadius.lg),
-    gap: scaleSpacing(spacing.md),
-    borderWidth: isTV ? 2 : 1,
-    borderColor: rgba(colors.primary.accent, 0.2),
-    ...shadows.md,
-  },
-  statIcon: {
-    fontSize: scaledFont(typography.size.xl),
-  },
-  statLabel: {
-    fontSize: scaledFont(typography.size.xs),
-    color: colors.neutral.gray200,
-    fontWeight: '600' as any,
-    textTransform: 'uppercase' as any,
-    letterSpacing: typography.letterSpacing.wide,
-  },
-  statValue: {
-    fontSize: scaledFont(typography.size.md),
-    color: colors.neutral.white,
-    fontWeight: '700' as any,
-    letterSpacing: typography.letterSpacing.normal,
-  },
-  genreContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: scaleSpacing(spacing.md),
-  },
-  genreTag: {
-    backgroundColor: rgba(colors.primary.accent, 0.18),
-    paddingHorizontal: scaleSpacing(spacing.lg),
-    paddingVertical: scaleSpacing(spacing.sm),
-    borderRadius: getScaledRadius(borderRadius.md),
-    borderWidth: isTV ? 2.5 : 1.5,
-    borderColor: rgba(colors.primary.accent, 0.4),
-  },
-  genreText: {
-    color: colors.primary.accent,
-    fontSize: scaledFont(typography.size.sm),
-    fontWeight: '700' as any,
-    letterSpacing: typography.letterSpacing.wide,
-    textTransform: 'uppercase' as any,
+    marginBottom: spacing.md,
+    textAlign: isMobile ? 'center' : 'left',
   },
 
-  // Modern minimal icon button style
-  iconButton: {
-    flex: 1,
+  // Meta Row
+  metaRow: {
     flexDirection: 'row',
-    backgroundColor: 'transparent',
-    paddingVertical: scaleSpacing(spacing.md),
-    borderRadius: borderRadius.button, // Minimal 4-6px corners
     alignItems: 'center',
+    marginBottom: spacing.md,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    justifyContent: isMobile ? 'center' : 'flex-start',
+  },
+  metaText: {
+    fontSize: isMobile ? typography.size.xs : typography.size.sm,
+    color: colors.neutral.gray200,
+    fontWeight: '500' as const,
+  },
+  metaDot: {
+    fontSize: isMobile ? typography.size.xs : typography.size.sm,
+    color: colors.neutral.gray400,
+  },
+  ratingBadge: {
+    backgroundColor: rgba(colors.secondary.gold, 0.15),
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  ratingText: {
+    fontSize: typography.size.xs,
+    color: colors.secondary.gold,
+    fontWeight: '600' as const,
+  },
+
+  // Genres
+  genreRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: isMobile ? spacing.md : spacing.lg,
+    justifyContent: isMobile ? 'center' : 'flex-start',
+  },
+  genreTag: {
+    backgroundColor: rgba(colors.neutral.white, 0.08),
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  genreText: {
+    fontSize: typography.size.xs,
+    color: colors.neutral.gray100,
+    fontWeight: '500' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+
+  // Action Buttons
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    justifyContent: isMobile ? 'center' : 'flex-start',
+  },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.accent,
+    paddingVertical: isMobile ? spacing.sm : spacing.md,
+    paddingHorizontal: isMobile ? spacing.lg : spacing.xl,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+  },
+  playButtonIcon: {
+    fontSize: isMobile ? typography.size.sm : typography.size.base,
+    color: colors.neutral.white,
+  },
+  playButtonText: {
+    fontSize: isMobile ? typography.size.sm : typography.size.base,
+    color: colors.neutral.white,
+    fontWeight: '600' as const,
+  },
+  iconButton: {
+    width: isMobile ? 40 : 48,
+    height: isMobile ? 40 : 48,
+    borderRadius: borderRadius.md,
+    backgroundColor: rgba(colors.neutral.white, 0.08),
     justifyContent: 'center',
-    gap: scaleSpacing(spacing.sm),
-    borderWidth: 2,
-    borderColor: rgba(colors.neutral.white, 0.5),
-    // No heavy shadows
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: rgba(colors.neutral.white, 0.15),
   },
   iconButtonActive: {
     backgroundColor: rgba(colors.primary.accent, 0.15),
-    borderColor: colors.primary.accent,
-  },
-  iconButtonIcon: {
-    fontSize: scaledFont(typography.size.lg),
+    borderColor: rgba(colors.primary.accent, 0.3),
   },
   iconButtonText: {
-    fontSize: scaledFont(typography.size.sm),
-    fontWeight: '600' as any,
-    color: colors.neutral.white,
-    letterSpacing: typography.letterSpacing.wide,
+    fontSize: typography.size.xl,
   },
-  iconButtonTextActive: {
-    color: colors.primary.accent,
-  },
+
+  // Sections
   section: {
-    padding: getContainerPadding(),
-    paddingTop: 0,
+    paddingHorizontal: isMobile ? spacing.lg : spacing.giant,
+    marginBottom: isMobile ? spacing.lg : spacing.xl,
+  },
+  sectionTitleContainer: {
+    alignSelf: 'flex-start',
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: scaledFont(typography.size.xxl + 2),
-    fontWeight: '800' as any,
+    fontSize: typography.size.sm,
+    fontWeight: '600' as const,
     color: colors.neutral.white,
-    marginBottom: scaleSpacing(spacing.lg),
-    letterSpacing: typography.letterSpacing.wide,
+    letterSpacing: typography.letterSpacing.caps,
+    textTransform: 'uppercase',
+    paddingBottom: spacing.xs,
+  },
+  sectionTitleUnderline: {
+    height: 2,
+    backgroundColor: colors.primary.accent,
+    borderRadius: 1,
+    marginTop: spacing.xs,
   },
   description: {
-    fontSize: scaledFont(typography.size.lg),
+    fontSize: isMobile ? typography.size.sm : typography.size.md,
     color: colors.neutral.gray100,
-    lineHeight: scaledFont(typography.size.xxl + 4),
-    fontWeight: '400' as any,
+    lineHeight: isMobile ? typography.size.sm * 1.7 : typography.size.md * 1.7,
+    fontWeight: '400' as const,
   },
-  creditsCard: {
-    backgroundColor: rgba(colors.primary.mediumGray, 0.4),
-    borderRadius: getScaledRadius(borderRadius.xl),
-    padding: scaleSpacing(spacing.xl),
-    borderWidth: isTV ? 2 : 1,
-    borderColor: rgba(colors.primary.lightGray, 0.2),
-    gap: scaleSpacing(spacing.lg),
-  },
-  creditRow: {
-    gap: scaleSpacing(spacing.md),
-  },
-  creditLabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: scaleSpacing(spacing.sm),
-    marginBottom: scaleSpacing(spacing.xs),
-  },
-  creditIcon: {
-    fontSize: scaledFont(typography.size.lg),
+
+  // Credits
+  creditItem: {
+    marginBottom: isMobile ? spacing.md : spacing.lg,
   },
   creditLabel: {
-    fontSize: scaledFont(typography.size.sm),
-    color: colors.primary.accent,
-    fontWeight: '700' as any,
-    letterSpacing: typography.letterSpacing.widest,
-    textTransform: 'uppercase' as any,
+    fontSize: typography.size.xs,
+    color: colors.neutral.gray400,
+    fontWeight: '500' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1.5,
+    marginBottom: spacing.sm,
   },
   creditValue: {
-    fontSize: scaledFont(typography.size.md),
+    fontSize: isMobile ? typography.size.sm : typography.size.md,
     color: colors.neutral.gray100,
-    lineHeight: scaledFont(typography.size.xl),
-    fontWeight: '400' as any,
+    lineHeight: isMobile ? typography.size.sm * 1.6 : typography.size.md * 1.6,
+    fontWeight: '400' as const,
+  },
+
+  // Bottom Spacer
+  bottomSpacer: {
+    height: isMobile ? spacing.xl : spacing.giant,
   },
 });

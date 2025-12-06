@@ -9,16 +9,16 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../src/contexts/AuthContext';
 import { useFavorites } from '../src/contexts/FavoritesContext';
 import { iptvService } from '../src/services/iptv.service';
 import { EPGService } from '../src/services/epg.service';
 import { EPGListing, LiveStream } from '../src/types/iptv.types';
-import { Button } from '../src/components/ui/Button';
-import { colors, typography, spacing, borderRadius, shadows, rgba } from '../src/constants/theme';
+import { colors, typography, spacing, borderRadius, rgba } from '../src/constants/theme';
 
-const { width } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function ChannelDetailsScreen() {
   const router = useRouter();
@@ -28,7 +28,7 @@ export default function ChannelDetailsScreen() {
     logo: string;
     categoryId: string;
   }>();
-  const { credentials } = useAuth();
+  const { credentials, isAuthenticated, isLoading: authLoading } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
 
   const [channel, setChannel] = useState<LiveStream | null>(null);
@@ -36,25 +36,26 @@ export default function ChannelDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [epgService, setEpgService] = useState<EPGService | null>(null);
 
-  const streamId = parseInt(params.streamId);
+  const streamId = Number.parseInt(params.streamId);
   const isFav = isFavorite(streamId);
 
   useEffect(() => {
-    loadChannelDetails();
-  }, [params.streamId]);
+    // Wait for auth to be ready before loading
+    if (isAuthenticated && !authLoading) {
+      loadChannelDetails();
+    }
+  }, [params.streamId, isAuthenticated, authLoading]);
 
   const loadChannelDetails = async () => {
     try {
       setLoading(true);
       
-      // Load channel info
       const streams = await iptvService.getLiveStreams(params.categoryId);
       const channelData = streams.find(s => s.stream_id === streamId);
       if (channelData) {
         setChannel(channelData);
       }
 
-      // Load EPG
       if (credentials) {
         const service = new EPGService(credentials);
         setEpgService(service);
@@ -90,15 +91,6 @@ export default function ChannelDetailsScreen() {
     }
   };
 
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
     return date.toLocaleTimeString('en-US', {
@@ -113,122 +105,150 @@ export default function ChannelDetailsScreen() {
     return program.start_timestamp <= now && program.stop_timestamp >= now;
   };
 
+  const getCurrentProgram = () => {
+    return epgListings.find(isNowPlaying);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E50914" />
+        <ActivityIndicator size="large" color={colors.primary.accent} />
         <Text style={styles.loadingText}>Loading channel details...</Text>
       </View>
     );
   }
 
+  const currentProgram = getCurrentProgram();
+  const logoUrl = params.logo || channel?.stream_icon;
+
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Channel Details</Text>
-        <View style={{ width: 50 }} />
-      </View>
+      {/* Backdrop Gradient */}
+      <LinearGradient
+        colors={[colors.primary.darkGray, colors.primary.background]}
+        style={styles.backdrop}
+      />
 
-      <ScrollView style={styles.content}>
-        {/* Channel Info Section */}
+      {/* Back Button */}
+      <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+        <Text style={styles.backButtonText}>←</Text>
+      </TouchableOpacity>
+
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Channel Section - Centered Layout */}
         <View style={styles.channelSection}>
+          {/* Channel Logo */}
           <View style={styles.logoContainer}>
-            {params.logo ? (
+            {logoUrl ? (
               <Image
-                source={{ uri: params.logo }}
+                source={{ uri: logoUrl }}
                 style={styles.logo}
                 resizeMode="contain"
               />
             ) : (
-              <View style={[styles.logo, styles.logoPlaceholder]}>
+              <View style={styles.logoPlaceholder}>
                 <Text style={styles.logoPlaceholderText}>📺</Text>
               </View>
             )}
           </View>
 
-          <View style={styles.channelInfo}>
-            <Text style={styles.channelName}>{params.name}</Text>
-            {channel && (
-              <Text style={styles.channelMeta}>
-                Stream ID: {channel.stream_id}
-              </Text>
-            )}
+          {/* Channel Name */}
+          <Text style={styles.channelName}>{params.name}</Text>
+
+          {/* Live Badge */}
+          <View style={styles.liveBadge}>
+            <View style={styles.liveIndicator} />
+            <Text style={styles.liveText}>LIVE</Text>
           </View>
 
-          <View style={styles.actionButtons}>
-            <Button
-              title="▶ Watch Live"
-              variant="primary"
-              size="xl"
-              onPress={handlePlay}
-              fullWidth
-            />
+          {/* Current Program Info */}
+          {Boolean(currentProgram) && (
+            <View style={styles.currentProgram}>
+              <Text style={styles.nowPlayingLabel}>Now Playing</Text>
+              <Text style={styles.currentProgramTitle}>{currentProgram?.title}</Text>
+              <Text style={styles.currentProgramTime}>
+                {formatTime(currentProgram!.start_timestamp)} - {formatTime(currentProgram!.stop_timestamp)}
+              </Text>
+            </View>
+          )}
 
-            <Button
-              title={isFav ? '❤️ Favorited' : '🤍 Add to Favorites'}
-              variant={isFav ? 'danger' : 'secondary'}
-              size="xl"
+          {/* Action Buttons */}
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.playButton} onPress={handlePlay}>
+              <Text style={styles.playButtonIcon}>▶</Text>
+              <Text style={styles.playButtonText}>Watch Live</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.iconButton, isFav && styles.iconButtonActive]}
               onPress={() => toggleFavorite(streamId)}
-              fullWidth
-            />
+            >
+              <Text style={styles.iconButtonText}>{isFav ? '❤️' : '♡'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* EPG Schedule Section */}
-        <View style={styles.scheduleSection}>
+        {/* TV Guide Section */}
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>TV Guide</Text>
+          
           {epgListings.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateIcon}>📅</Text>
               <Text style={styles.emptyStateText}>No schedule available</Text>
             </View>
           ) : (
-            epgListings.map((program, index) => {
-              const now = isNowPlaying(program);
-              const progress = epgService ? epgService.getProgramProgress(program) : 0;
+            <View style={styles.programList}>
+              {epgListings.map((program) => {
+                const isNow = isNowPlaying(program);
+                const progress = epgService ? epgService.getProgramProgress(program) : 0;
 
-              return (
-                <View
-                  key={program.id}
-                  style={[styles.programCard, now && styles.programCardNow]}
-                >
-                  {now && (
-                    <View style={styles.nowPlayingBadge}>
-                      <Text style={styles.nowPlayingText}>● NOW</Text>
+                return (
+                  <View
+                    key={program.id}
+                    style={[styles.programCard, isNow && styles.programCardNow]}
+                  >
+                    <View style={styles.programTimeColumn}>
+                      <Text style={[styles.programTime, isNow && styles.programTimeNow]}>
+                        {formatTime(program.start_timestamp)}
+                      </Text>
+                      <Text style={styles.programEndTime}>
+                        {formatTime(program.stop_timestamp)}
+                      </Text>
                     </View>
-                  )}
 
-                  <View style={styles.programHeader}>
-                    <Text style={styles.programTime}>
-                      {formatTime(program.start_timestamp)} - {formatTime(program.stop_timestamp)}
-                    </Text>
-                    <Text style={styles.programDate}>
-                      {formatDate(program.start_timestamp)}
-                    </Text>
+                    <View style={styles.programContent}>
+                      {isNow && (
+                        <View style={styles.nowBadge}>
+                          <Text style={styles.nowBadgeText}>NOW</Text>
+                        </View>
+                      )}
+                      <Text style={[styles.programTitle, isNow && styles.programTitleNow]}>
+                        {program.title}
+                      </Text>
+                      {Boolean(program.description) && (
+                        <Text style={styles.programDescription} numberOfLines={2}>
+                          {program.description}
+                        </Text>
+                      )}
+                      {isNow && (
+                        <View style={styles.progressBarContainer}>
+                          <View style={[styles.progressBar, { width: `${progress}%` }]} />
+                        </View>
+                      )}
+                    </View>
                   </View>
-
-                  <Text style={styles.programTitle}>{program.title}</Text>
-
-                  {program.description && (
-                    <Text style={styles.programDescription} numberOfLines={3}>
-                      {program.description}
-                    </Text>
-                  )}
-
-                  {now && (
-                    <View style={styles.progressBarContainer}>
-                      <View style={[styles.progressBar, { width: `${progress}%` }]} />
-                    </View>
-                  )}
-                </View>
-              );
-            })
+                );
+              })}
+            </View>
           )}
         </View>
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </View>
   );
@@ -239,6 +259,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.primary.background,
   },
+  
+  // Loading
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -248,242 +270,298 @@ const styles = StyleSheet.create({
   loadingText: {
     color: colors.neutral.gray200,
     marginTop: spacing.lg,
-    fontSize: typography.size.lg,
-    fontWeight: '500' as any,
+    fontSize: typography.size.base,
+    fontWeight: '500' as const,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.lg,
-    paddingTop: spacing.xxxl + spacing.md,
-    backgroundColor: rgba(colors.primary.background, 0.98),
-    borderBottomWidth: 1,
-    borderBottomColor: rgba(colors.neutral.white, 0.1),
+
+  // Backdrop
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: screenWidth * 0.5,
   },
+
+  // Back Button
   backButton: {
+    position: 'absolute',
+    top: spacing.huge,
+    left: spacing.giant,
+    zIndex: 100,
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'transparent',
+    backgroundColor: rgba(colors.primary.black, 0.6),
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: rgba(colors.neutral.white, 0.4),
-    // No heavy shadows
+    borderWidth: 1,
+    borderColor: rgba(colors.neutral.white, 0.2),
   },
-  backIcon: {
+  backButtonText: {
     fontSize: typography.size.xl,
     color: colors.neutral.white,
+    fontWeight: '600' as const,
   },
-  headerTitle: {
-    fontSize: typography.size.xxl,
-    fontWeight: '800' as any,
-    color: colors.neutral.white,
-    letterSpacing: typography.letterSpacing.wide,
-  },
-  content: {
+
+  // Scroll
+  scrollView: {
     flex: 1,
   },
-  channelSection: {
-    padding: spacing.xxxl,
-    alignItems: 'center',
+  scrollContent: {
+    paddingTop: spacing.huge + spacing.xxl,
   },
+
+  // Channel Section - Centered
+  channelSection: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.giant,
+    marginBottom: spacing.xxl,
+  },
+
+  // Logo
   logoContainer: {
-    width: 240,
+    width: 140,
     height: 140,
-    backgroundColor: rgba(colors.primary.mediumGray, 0.4),
-    borderRadius: borderRadius.xl,
-    borderWidth: 2,
-    borderColor: rgba(colors.primary.lightGray, 0.3),
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    backgroundColor: rgba(colors.neutral.white, 0.05),
+    borderWidth: 1,
+    borderColor: rgba(colors.neutral.white, 0.1),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.xxl,
-    ...shadows.lg,
+    marginBottom: spacing.lg,
   },
   logo: {
-    width: '80%',
-    height: '80%',
+    width: '70%',
+    height: '70%',
   },
   logoPlaceholder: {
-    backgroundColor: rgba(colors.primary.mediumGray, 0.5),
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.primary.mediumGray,
   },
   logoPlaceholderText: {
-    fontSize: typography.size.hero,
+    fontSize: 48,
     opacity: 0.3,
   },
-  channelInfo: {
-    alignItems: 'center',
-    marginBottom: spacing.xxl,
-  },
+
+  // Channel Name
   channelName: {
-    fontSize: typography.size.xxxl + 4,
-    fontWeight: '800' as any,
+    fontSize: typography.size.xxl,
+    fontWeight: '700' as const,
     color: colors.neutral.white,
     textAlign: 'center',
-    marginBottom: spacing.md,
-    letterSpacing: typography.letterSpacing.tight,
+    marginBottom: spacing.sm,
+    letterSpacing: -0.5,
   },
-  channelMeta: {
-    fontSize: typography.size.md,
-    color: colors.neutral.gray200,
-    fontWeight: '500' as any,
-  },
-  actionButtons: {
+
+  // Live Badge
+  liveBadge: {
     flexDirection: 'row',
-    gap: spacing.md,
-    width: '100%',
-    maxWidth: 600,
-  },
-  // Primary Play button - Solid red, minimal corners
-  playButton: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: colors.primary.accent,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.button, // Minimal 4-6px corners
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.lg,
+  },
+  liveIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.semantic.live,
+  },
+  liveText: {
+    fontSize: typography.size.xs,
+    fontWeight: '700' as const,
+    color: colors.semantic.live,
+    letterSpacing: 1,
+  },
+
+  // Current Program
+  currentProgram: {
+    alignItems: 'center',
+    backgroundColor: rgba(colors.neutral.white, 0.05),
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: rgba(colors.neutral.white, 0.08),
+  },
+  nowPlayingLabel: {
+    fontSize: typography.size.xs,
+    fontWeight: '600' as const,
+    color: colors.primary.accent,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1,
+    marginBottom: spacing.xs,
+  },
+  currentProgramTitle: {
+    fontSize: typography.size.base,
+    fontWeight: '600' as const,
+    color: colors.neutral.white,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  currentProgramTime: {
+    fontSize: typography.size.xs,
+    color: colors.neutral.gray400,
+  },
+
+  // Action Buttons
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.accent,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.md,
     gap: spacing.sm,
-    // No heavy shadows
   },
   playButtonIcon: {
-    fontSize: typography.size.xl,
+    fontSize: typography.size.base,
     color: colors.neutral.white,
   },
   playButtonText: {
-    fontSize: typography.size.md,
-    fontWeight: '600' as any,
+    fontSize: typography.size.base,
     color: colors.neutral.white,
-    letterSpacing: typography.letterSpacing.wide,
+    fontWeight: '600' as const,
   },
-  // Favorite button - Transparent with border
-  favoriteButtonLarge: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: 'transparent',
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.button, // Minimal corners
-    alignItems: 'center',
+  iconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.md,
+    backgroundColor: rgba(colors.neutral.white, 0.08),
     justifyContent: 'center',
-    gap: spacing.sm,
-    borderWidth: 2,
-    borderColor: rgba(colors.neutral.white, 0.5),
-    // No heavy shadows
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: rgba(colors.neutral.white, 0.15),
   },
-  favoriteButtonActive: {
+  iconButtonActive: {
     backgroundColor: rgba(colors.primary.accent, 0.15),
-    borderColor: colors.primary.accent,
+    borderColor: rgba(colors.primary.accent, 0.3),
   },
-  favoriteButtonIcon: {
+  iconButtonText: {
     fontSize: typography.size.xl,
   },
-  favoriteButtonText: {
-    fontSize: typography.size.md,
-    fontWeight: '600' as any,
-    color: colors.neutral.white,
-    letterSpacing: typography.letterSpacing.wide,
-  },
-  favoriteButtonTextActive: {
-    color: colors.primary.accent,
-  },
-  scheduleSection: {
-    padding: spacing.xxxl,
-    paddingTop: 0,
+
+  // Sections
+  section: {
+    paddingHorizontal: spacing.giant,
+    marginBottom: spacing.xl,
   },
   sectionTitle: {
-    fontSize: typography.size.xxl + 4,
-    fontWeight: '800' as any,
+    fontSize: typography.size.lg,
+    fontWeight: '600' as const,
     color: colors.neutral.white,
-    marginBottom: spacing.xl,
-    letterSpacing: typography.letterSpacing.wide,
+    marginBottom: spacing.md,
+    letterSpacing: 0.3,
   },
+
+  // Empty State
   emptyState: {
     alignItems: 'center',
-    paddingVertical: spacing.huge,
+    paddingVertical: spacing.xxl,
   },
   emptyStateIcon: {
-    fontSize: typography.size.hero,
-    marginBottom: spacing.lg,
+    fontSize: 48,
+    marginBottom: spacing.md,
     opacity: 0.3,
   },
   emptyStateText: {
-    fontSize: typography.size.lg,
-    color: colors.neutral.gray200,
-    fontWeight: '500' as any,
+    fontSize: typography.size.base,
+    color: colors.neutral.gray400,
+  },
+
+  // Program List
+  programList: {
+    gap: spacing.sm,
   },
   programCard: {
-    backgroundColor: rgba(colors.primary.mediumGray, 0.4),
-    borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    marginBottom: spacing.lg,
-    borderWidth: 2,
-    borderColor: rgba(colors.primary.lightGray, 0.3),
-    ...shadows.md,
+    flexDirection: 'row',
+    backgroundColor: rgba(colors.neutral.white, 0.04),
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: rgba(colors.neutral.white, 0.06),
   },
   programCardNow: {
-    backgroundColor: rgba(colors.primary.accent, 0.12),
-    borderColor: colors.primary.accent,
-    ...shadows.accent,
+    backgroundColor: rgba(colors.primary.accent, 0.08),
+    borderColor: rgba(colors.primary.accent, 0.2),
   },
-  nowPlayingBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.primary.accent,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-  },
-  nowPlayingText: {
-    color: colors.primary.black,
-    fontSize: typography.size.sm,
-    fontWeight: '800' as any,
-    letterSpacing: typography.letterSpacing.widest,
-    textTransform: 'uppercase' as any,
-  },
-  programHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
+  programTimeColumn: {
+    width: 70,
+    padding: spacing.md,
+    borderRightWidth: 1,
+    borderRightColor: rgba(colors.neutral.white, 0.06),
+    justifyContent: 'center',
   },
   programTime: {
-    fontSize: typography.size.md,
-    fontWeight: '700' as any,
-    color: colors.primary.accent,
-    letterSpacing: typography.letterSpacing.wide,
-  },
-  programDate: {
     fontSize: typography.size.sm,
+    fontWeight: '600' as const,
     color: colors.neutral.gray200,
-    fontWeight: '500' as any,
+  },
+  programTimeNow: {
+    color: colors.primary.accent,
+  },
+  programEndTime: {
+    fontSize: typography.size.xs,
+    color: colors.neutral.gray500,
+    marginTop: spacing.xs,
+  },
+  programContent: {
+    flex: 1,
+    padding: spacing.md,
+  },
+  nowBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary.accent,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    marginBottom: spacing.xs,
+  },
+  nowBadgeText: {
+    fontSize: typography.size.xs,
+    fontWeight: '700' as const,
+    color: colors.neutral.white,
+    letterSpacing: 0.5,
   },
   programTitle: {
-    fontSize: typography.size.lg + 2,
-    fontWeight: '700' as any,
+    fontSize: typography.size.sm,
+    fontWeight: '600' as const,
     color: colors.neutral.white,
-    marginBottom: spacing.sm,
-    letterSpacing: typography.letterSpacing.normal,
+    marginBottom: spacing.xs,
+  },
+  programTitleNow: {
+    color: colors.neutral.white,
   },
   programDescription: {
-    fontSize: typography.size.md,
-    color: colors.neutral.gray100,
-    lineHeight: typography.size.xl,
-    fontWeight: '400' as any,
+    fontSize: typography.size.xs,
+    color: colors.neutral.gray400,
+    lineHeight: typography.size.xs * 1.5,
   },
   progressBarContainer: {
-    height: 5,
+    height: 3,
     backgroundColor: rgba(colors.primary.accent, 0.2),
-    borderRadius: borderRadius.sm,
-    marginTop: spacing.md,
+    borderRadius: 2,
+    marginTop: spacing.sm,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
     backgroundColor: colors.primary.accent,
-    boxShadow: '0 0 4px rgba(229, 9, 20, 0.8)',
+    borderRadius: 2,
+  },
+
+  // Bottom Spacer
+  bottomSpacer: {
+    height: spacing.giant,
   },
 });

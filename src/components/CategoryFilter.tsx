@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { colors, typography, spacing, rgba } from '../constants/theme';
+import { isMobile, isTablet } from '../utils/responsive';
 
 interface Category {
   category_id: string;
@@ -82,11 +83,11 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'transparent',
-    paddingVertical: spacing.md,
+    paddingVertical: isMobile ? spacing.sm : spacing.md,
   },
   scrollContent: {
-    paddingHorizontal: spacing.giant, // 80px horizontal margins
-    gap: spacing.xl,
+    paddingHorizontal: isMobile ? spacing.md : spacing.giant,
+    gap: isMobile ? spacing.md : spacing.xl,
   },
   chip: {
     paddingHorizontal: spacing.xs,
@@ -97,9 +98,9 @@ const styles = StyleSheet.create({
   },
   chipText: {
     color: rgba(colors.neutral.gray100, 0.5),
-    fontSize: typography.size.sm, // 13px body
+    fontSize: isMobile ? typography.size.xs : typography.size.sm,
     fontWeight: '500' as any,
-    letterSpacing: typography.letterSpacing.wide,
+    letterSpacing: isMobile ? 0.5 : typography.letterSpacing.wide,
   },
   chipTextActive: {
     color: colors.neutral.white,
@@ -107,9 +108,9 @@ const styles = StyleSheet.create({
   },
   separator: {
     width: 1,
-    height: 14,
+    height: isMobile ? 12 : 14,
     backgroundColor: rgba(colors.neutral.white, 0.12),
-    marginHorizontal: spacing.md,
+    marginHorizontal: isMobile ? spacing.sm : spacing.md,
   },
   favoritesChip: {
     flexDirection: 'row',
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
     // Text-only style, no background
   },
   favoriteIcon: {
-    fontSize: typography.size.base,
+    fontSize: isMobile ? typography.size.sm : typography.size.base,
   },
   favoritesTextActive: {
     color: colors.primary.accent,

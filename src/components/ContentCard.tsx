@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,23 @@ import {
   Dimensions,
   Animated,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { colors, typography, spacing, borderRadius, rgba } from '../constants/theme';
 import { useHover } from '../hooks/useHover';
+import { isMobile, isTablet, isTV, getRowPadding } from '../utils/responsive';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = 220; // Enlarged cards for Netflix-style grid
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Responsive card width
+const getCardWidth = () => {
+  if (isTV) return 280;
+  if (isTablet) return 180;
+  if (isMobile) return Math.min((SCREEN_WIDTH - 48) / 2.5, 140); // 2.5 cards visible
+  return 220;
+};
+
+const CARD_WIDTH = getCardWidth();
 
 interface ContentCardProps {
   title: string;
@@ -36,6 +47,10 @@ export const ContentCard: React.FC<ContentCardProps> = React.memo(({
 }) => {
   const isLiveTV = type === 'live';
   const aspectRatio = isLiveTV ? 16 / 9 : 2 / 3;
+  
+  // Image loading state
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
 
   const handleFavoritePress = useCallback(
     (e: any) => {
@@ -45,10 +60,20 @@ export const ContentCard: React.FC<ContentCardProps> = React.memo(({
     [onFavoritePress]
   );
 
-  const imageSource = useMemo(
-    () => (imageUrl ? { uri: imageUrl } : null),
-    [imageUrl]
-  );
+  // Reset loading state when imageUrl changes
+  useEffect(() => {
+    setImageLoading(true);
+    setImageError(false);
+  }, [imageUrl]);
+
+  const handleImageLoad = useCallback(() => {
+    setImageLoading(false);
+  }, []);
+
+  const handleImageError = useCallback(() => {
+    setImageLoading(false);
+    setImageError(true);
+  }, []);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const shadowAnim = useRef(new Animated.Value(0)).current;
@@ -95,6 +120,9 @@ export const ContentCard: React.FC<ContentCardProps> = React.memo(({
     }).start();
   }, [scaleAnim, isHovered]);
 
+  // Show placeholder or image
+  const showImage = imageUrl && !imageError;
+
   return (
     <Pressable
       onPress={onPress}
@@ -109,13 +137,23 @@ export const ContentCard: React.FC<ContentCardProps> = React.memo(({
         ]}
       >
         <View style={[styles.imageContainer, { aspectRatio }]}>
-        {imageSource ? (
-          <Image
-            source={imageSource}
-            style={styles.image}
-            resizeMode={isLiveTV ? 'contain' : 'cover'}
-            defaultSource={require('../../assets/icon.png')}
-          />
+        {showImage ? (
+          <>
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.image}
+              resizeMode={isLiveTV ? 'contain' : 'cover'}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              // Optimize image loading
+              fadeDuration={200}
+            />
+            {imageLoading && (
+              <View style={styles.imageLoader}>
+                <ActivityIndicator size="small" color={colors.primary.accent} />
+              </View>
+            )}
+          </>
         ) : (
           <View style={[styles.image, styles.placeholderContainer]}>
             <Text style={styles.placeholderIcon}>
@@ -183,19 +221,24 @@ export const ContentCard: React.FC<ContentCardProps> = React.memo(({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: spacing.sm,
+    marginBottom: isMobile ? spacing.xs : spacing.sm,
   },
   imageContainer: {
     width: '100%',
     position: 'relative',
-    borderRadius: borderRadius.sm,
+    borderRadius: isMobile ? borderRadius.xs : borderRadius.sm,
     overflow: 'hidden',
     backgroundColor: rgba(colors.primary.mediumGray, 0.3),
-    // No heavy shadows - clean flat design
   },
   image: {
     width: '100%',
     height: '100%',
+  },
+  imageLoader: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: rgba(colors.primary.mediumGray, 0.5),
   },
   placeholderContainer: {
     justifyContent: 'center',
@@ -203,16 +246,16 @@ const styles = StyleSheet.create({
     backgroundColor: rgba(colors.primary.mediumGray, 0.4),
   },
   placeholderIcon: {
-    fontSize: 48,
+    fontSize: isMobile ? 32 : 48,
     opacity: 0.2,
   },
   favoriteButton: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: isMobile ? spacing.xs : spacing.sm,
+    right: isMobile ? spacing.xs : spacing.sm,
+    width: isMobile ? 26 : 32,
+    height: isMobile ? 26 : 32,
+    borderRadius: isMobile ? 13 : 16,
     backgroundColor: rgba(colors.primary.black, 0.6),
     justifyContent: 'center',
     alignItems: 'center',
@@ -271,7 +314,9 @@ const styles = StyleSheet.create({
     fontSize: typography.size.sm,
     fontWeight: '600' as any,
     marginBottom: spacing.xxs,
-    textShadow: '0 1px 3px rgba(10, 10, 10, 0.8)',
+    textShadowColor: 'rgba(10, 10, 10, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   hoverMeta: {
     color: rgba(colors.neutral.white, 0.85),

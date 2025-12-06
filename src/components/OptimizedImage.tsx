@@ -5,19 +5,25 @@ import {
   ActivityIndicator,
   View,
   StyleSheet,
+  Text,
 } from 'react-native';
 import { colors } from '../constants/theme';
+import { sanitizeImageUrl } from '../utils/imageUrls';
 
 interface OptimizedImageProps extends Omit<ImageProps, 'source'> {
   uri?: string;
   placeholder?: any;
   showLoader?: boolean;
+  placeholderIcon?: string;
+  showPlaceholder?: boolean;
 }
 
 export const OptimizedImage: React.FC<OptimizedImageProps> = React.memo(({
   uri,
   placeholder,
   showLoader = true,
+  placeholderIcon = '🎬',
+  showPlaceholder = true,
   style,
   ...props
 }) => {
@@ -33,20 +39,39 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = React.memo(({
     setError(true);
   }, []);
 
-  if (!uri || error) {
+  // Sanitize the URL
+  const sanitizedUri = sanitizeImageUrl(uri);
+
+  if (!sanitizedUri || error) {
+    // If showPlaceholder is false, just show empty container
+    if (!showPlaceholder) {
+      return <View style={[style, styles.placeholderContainer]} />;
+    }
+    // If a custom placeholder image is provided, use it
+    if (placeholder) {
+      return (
+        <View style={[style, styles.placeholderContainer]}>
+          <Image
+            source={placeholder}
+            style={styles.placeholderImage}
+            resizeMode="contain"
+            {...props}
+          />
+        </View>
+      );
+    }
+    // Otherwise use the emoji placeholder (clapperboard)
     return (
-      <Image
-        source={placeholder || require('../../assets/icon.png')}
-        style={style}
-        {...props}
-      />
+      <View style={[style, styles.placeholderContainer]}>
+        <Text style={styles.placeholderIcon}>{placeholderIcon}</Text>
+      </View>
     );
   }
 
   return (
     <View style={style}>
       <Image
-        source={{ uri }}
+        source={{ uri: sanitizedUri }}
         style={StyleSheet.absoluteFillObject}
         onLoadEnd={handleLoadEnd}
         onError={handleError}
@@ -69,5 +94,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.primary.darkGray,
+  },
+  placeholderContainer: {
+    backgroundColor: colors.primary.darkGray,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderImage: {
+    width: '50%',
+    height: '50%',
+    opacity: 0.3,
+  },
+  placeholderIcon: {
+    fontSize: 48,
+    opacity: 0.5,
   },
 });

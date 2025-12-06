@@ -1,6 +1,32 @@
 import { IPTVCredentials, EPGListing } from '../types/iptv.types';
 
 /**
+ * Decode Base64 encoded string (handles UTF-8 for Arabic/Unicode text)
+ */
+function decodeBase64(str: string): string {
+  if (!str) return '';
+  
+  try {
+    // Check if it looks like Base64 (only contains valid Base64 characters)
+    const base64Regex = /^[A-Za-z0-9+/=]+$/;
+    if (!base64Regex.test(str)) {
+      return str; // Return as-is if not Base64
+    }
+    
+    // Decode Base64 to bytes, then decode as UTF-8
+    const binaryString = atob(str);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return new TextDecoder('utf-8').decode(bytes);
+  } catch (e) {
+    // If decoding fails, return original string
+    return str;
+  }
+}
+
+/**
  * EPG Service for fetching and managing Electronic Program Guide data
  */
 export class EPGService {
@@ -32,11 +58,11 @@ export class EPGService {
         return Object.values(data.epg_listings).map((item: any) => ({
           id: item.id,
           epg_id: item.epg_id,
-          title: item.title,
+          title: decodeBase64(item.title),
           lang: item.lang,
           start: item.start,
           end: item.end,
-          description: item.description,
+          description: decodeBase64(item.description),
           channel_id: item.channel_id,
           start_timestamp: parseInt(item.start_timestamp),
           stop_timestamp: parseInt(item.stop_timestamp),
